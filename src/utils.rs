@@ -1,8 +1,14 @@
 use base64::{Engine, engine::general_purpose};
+use rand::{RngCore, rngs::OsRng};
 use std::collections::HashMap;
 use url::form_urlencoded;
 
-use crate::error::Error;
+use crate::{
+    constants::{
+        DID_DELIMITER, DID_METHOD, DID_PREFIX, MULTICODEC_ED25519_BASE, MULTICODEC_ED25519_HEADER,
+    },
+    error::Error,
+};
 
 #[derive(Debug, PartialEq)]
 pub struct UriParameters {
@@ -104,6 +110,29 @@ pub fn parse_relay_params(params: &HashMap<String, String>) -> Result<RelayProto
     let data = params.get(data_key).cloned();
 
     Ok(RelayProtocolOptions { protocol, data })
+}
+
+pub fn random_bytes32() -> [u8; 32] {
+    let mut random_value = [0u8; 32];
+    OsRng.fill_bytes(&mut random_value);
+    random_value
+}
+
+pub fn encode_iss(public_key: [u8; 32]) -> String {
+    let header = bs58::decode(MULTICODEC_ED25519_HEADER)
+        .into_vec()
+        .expect("Failed to decode Base58");
+
+    let combined = bs58::encode([header, public_key.to_vec()].concat()).into_string();
+
+    // 2. Base58-encode the combined bytes
+    let encoded = bs58::encode(combined).into_string();
+
+    // 3. Prepend the base prefix ("z")
+    let multicodec = format!("{}{}", MULTICODEC_ED25519_BASE, encoded);
+
+    // 4. Construct the final DID string: "did:key:z..."
+    [DID_PREFIX, DID_METHOD, &multicodec].join(DID_DELIMITER)
 }
 
 #[cfg(test)]
