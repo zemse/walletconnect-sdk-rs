@@ -1,4 +1,4 @@
-use base64::{Engine, engine::general_purpose};
+use base64ct::{Base64UrlUnpadded, Encoding};
 use rand::{RngCore, rngs::OsRng};
 use std::collections::HashMap;
 use url::form_urlencoded;
@@ -29,7 +29,7 @@ pub struct RelayProtocolOptions {
 
 pub fn parse_uri(mut input: String) -> Result<UriParameters, Error> {
     if !input.contains("wc:") {
-        if let Ok(decoded_bytes) = general_purpose::STANDARD.decode(&input) {
+        if let Ok(decoded_bytes) = Base64UrlUnpadded::decode_vec(&input) {
             if let Ok(decoded_str) = String::from_utf8(decoded_bytes) {
                 if decoded_str.contains("wc:") {
                     input = decoded_str;
@@ -118,15 +118,12 @@ pub fn random_bytes32() -> [u8; 32] {
     random_value
 }
 
-pub fn encode_iss(public_key: [u8; 32]) -> String {
+pub fn encode_iss(public_key: &[u8; 32]) -> String {
     let header = bs58::decode(MULTICODEC_ED25519_HEADER)
         .into_vec()
         .expect("Failed to decode Base58");
 
-    let combined = bs58::encode([header, public_key.to_vec()].concat()).into_string();
-
-    // 2. Base58-encode the combined bytes
-    let encoded = bs58::encode(combined).into_string();
+    let encoded = bs58::encode([header, public_key.to_vec()].concat()).into_string();
 
     // 3. Prepend the base prefix ("z")
     let multicodec = format!("{}{}", MULTICODEC_ED25519_BASE, encoded);

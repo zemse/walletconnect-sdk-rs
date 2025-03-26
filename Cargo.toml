@@ -4,11 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-base64 = "0.22.1"
-serde = "1.0.219"
+serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
 url = "2.5.4"
 alloy = { version = "0.11", features = ["full", "rlp"] }
 rand = "0.8"
 ed25519-dalek = "2.1.1"
 bs58 = "0.5.1"
+base64ct = {version = "1.6", features = ["alloc"] }
+tokio = { version = "1.28", features = ["rt-multi-thread", "macros"] }
+reqwest = { version = "0.11", features = ["json"] }
+anyhow = "1.0"

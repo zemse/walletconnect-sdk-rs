@@ -4,7 +4,7 @@ use crate::{
 };
 
 pub struct WalletKit {
-    client_seed: [u8; 32],
+    pub client_seed: [u8; 32],
 }
 
 impl Default for WalletKit {
@@ -24,7 +24,7 @@ impl WalletKit {
     pub fn get_client_id(&self) -> String {
         let seed = self.client_seed;
         let key_pair = relay_auth::generate_keypair(Some(seed));
-        encode_iss(key_pair.public_key)
+        encode_iss(&key_pair.public_key)
     }
 }
 
