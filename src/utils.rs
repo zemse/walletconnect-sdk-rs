@@ -142,8 +142,8 @@ mod tests {
             "wc:b29dcadbdad95479378331a2563baa512a71c014c30015387798a29f95aa44ee@2?relay-protocol=irn&symKey=761ab2f7f9deae2d5d18f887d2a8d812da0ec5fda0d0df8cc7ec1969832c0da2&expiryTimestamp=1742817708&methods=wc_sessionAuthenticate".to_string(),
         );
         assert_eq!(
-            result,
-            Ok(UriParameters {
+            result.unwrap(),
+            UriParameters {
                 protocol: "".to_string(),
                 topic: "b29dcadbdad95479378331a2563baa512a71c014c30015387798a29f95aa44ee"
                     .to_string(),
@@ -156,7 +156,7 @@ mod tests {
                 },
                 methods: Some(vec!["wc_sessionAuthenticate".to_string()]),
                 expiry_timestamp: Some(1742817708)
-            })
+            }
         );
     }
 }

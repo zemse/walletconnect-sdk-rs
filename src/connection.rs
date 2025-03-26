@@ -1,12 +1,12 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::Result;
 use rand::Rng;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::runtime::Runtime;
 
+use crate::error::Result;
 use crate::wallet_kit::WalletKit;
 
 pub struct Connection {
@@ -58,11 +58,9 @@ impl Connection {
         .unwrap();
     }
 
-    fn request(&self, rpc_request: JsonRpcRequest) -> Result<()> {
+    fn request(&self, rpc_request: JsonRpcRequest) -> Result<Value> {
         let client = Client::new();
-
         let rt = Runtime::new().expect("runtime failed");
-
         let response = rt.block_on(
             rt.block_on(
                 client
@@ -77,21 +75,13 @@ impl Connection {
             .into_future(),
         )?;
 
-        println!("RawResponse: {:?}", response);
-
-        // 4. Check for success or error.
         if let Some(result) = response.result {
-            println!("Success! Result: {}", result);
+            Ok(result)
         } else if let Some(error) = response.error {
-            eprintln!("JSON-RPC Error {}: {}", error.code, error.message);
-            if let Some(data) = error.data {
-                eprintln!("Error data: {}", data);
-            }
+            Err(error.into())
         } else {
-            eprintln!("Unexpected response: {:?}", response);
+            Err(format!("Unexpected response: {:?}", response).into())
         }
-
-        Ok(())
     }
 }
 
@@ -121,7 +111,8 @@ struct JsonRpcResponse {
 
 /// A JSON-RPC error object (code, message, and optional data).
 #[derive(Deserialize, Debug)]
-struct JsonRpcError {
+#[allow(dead_code)]
+pub struct JsonRpcError {
     code: i64,
     message: String,
     #[serde(default)]

@@ -1,14 +1,46 @@
-#[derive(Debug, PartialEq)]
+use crate::connection;
+
+pub type Result<T, E = Error> = core::result::Result<T, E>;
+
+#[derive(Debug)]
 pub enum Error {
     RelayProtocolNotMentioned,
     InvalidUri,
     SymKeyNotMentioned,
     PathEndNotFound,
     ParseInt(std::num::ParseIntError),
+    JsonRpc(connection::JsonRpcError),
+    Anyhow(anyhow::Error),
+    Reqwest(reqwest::Error),
+    InternalError(String),
+}
+
+impl From<String> for Error {
+    fn from(e: String) -> Self {
+        Error::InternalError(e)
+    }
 }
 
 impl From<std::num::ParseIntError> for Error {
     fn from(e: std::num::ParseIntError) -> Self {
         Error::ParseInt(e)
+    }
+}
+
+impl From<connection::JsonRpcError> for Error {
+    fn from(e: connection::JsonRpcError) -> Self {
+        Error::JsonRpc(e)
+    }
+}
+
+impl From<anyhow::Error> for Error {
+    fn from(e: anyhow::Error) -> Self {
+        Error::Anyhow(e)
+    }
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(e: reqwest::Error) -> Self {
+        Error::Reqwest(e)
     }
 }
