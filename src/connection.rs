@@ -7,22 +7,25 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use tokio::runtime::Runtime;
 
-use crate::relay_auth::sign_jwt;
+use crate::wallet_kit::WalletKit;
 
-struct Connection {
+pub struct Connection {
     rpc: String,
     id: usize,
     jwt: String,
+    project_id: String,
 }
 
 impl Connection {
-    pub fn new(rpc: String) -> Self {
+    pub fn new(rpc: &str, jwt_rpc: &str, client_seed: [u8; 32], project_id: &str) -> Self {
+        let wallet_kit = WalletKit::new(client_seed);
         let initial: u16 = rand::thread_rng().r#gen();
-        let jwt = sign_jwt("https://relay.walletconnect.org");
+        let jwt = wallet_kit.sign_jwt(jwt_rpc);
         Self {
-            rpc,
+            rpc: rpc.to_string(),
             id: initial as usize,
             jwt,
+            project_id: project_id.to_string(),
         }
     }
 
@@ -38,8 +41,7 @@ impl Connection {
     }
 
     pub fn ping(&self) {
-        send_request(
-            &self.rpc,
+        self.request(
             JsonRpcRequest {
                 id: self.get_id(),
                 jsonrpc: "2.0",
@@ -52,9 +54,44 @@ impl Connection {
                     "tag":1109
                 })),
             },
-           & self.jwt
         )
         .unwrap();
+    }
+
+    fn request(&self, rpc_request: JsonRpcRequest) -> Result<()> {
+        let client = Client::new();
+
+        let rt = Runtime::new().expect("runtime failed");
+
+        let response = rt.block_on(
+            rt.block_on(
+                client
+                    .post(&self.rpc)
+                    .query(&[("projectId", &self.project_id)])
+                    .bearer_auth(&self.jwt)
+                    .json(&rpc_request)
+                    .send()
+                    .into_future(),
+            )?
+            .json::<JsonRpcResponse>()
+            .into_future(),
+        )?;
+
+        println!("RawResponse: {:?}", response);
+
+        // 4. Check for success or error.
+        if let Some(result) = response.result {
+            println!("Success! Result: {}", result);
+        } else if let Some(error) = response.error {
+            eprintln!("JSON-RPC Error {}: {}", error.code, error.message);
+            if let Some(data) = error.data {
+                eprintln!("Error data: {}", data);
+            }
+        } else {
+            eprintln!("Unexpected response: {:?}", response);
+        }
+
+        Ok(())
     }
 }
 
@@ -71,12 +108,14 @@ struct JsonRpcRequest {
 /// A basic JSON-RPC 2.0 response with either a result or an error.
 #[derive(Deserialize, Debug)]
 struct JsonRpcResponse {
+    #[allow(dead_code)]
     jsonrpc: String,
     #[serde(default)]
     result: Option<Value>,
     #[serde(default)]
     error: Option<JsonRpcError>,
     #[serde(default)]
+    #[allow(dead_code)]
     id: Option<u64>,
 }
 
@@ -89,49 +128,18 @@ struct JsonRpcError {
     data: Option<Value>,
 }
 
-fn send_request(url: &str, rpc_request: JsonRpcRequest, jwt: &str) -> Result<()> {
-    let client = Client::new();
-
-    let rt = Runtime::new().expect("runtime failed");
-
-    let response = rt.block_on(
-        rt.block_on(
-            client
-                .post(url)
-                .query(&[("projectId", "35d44d49c2dee217a3eb24bb4410acc7")])
-                .bearer_auth(jwt)
-                .json(&rpc_request)
-                .send()
-                .into_future(),
-        )?
-        .json::<JsonRpcResponse>()
-        .into_future(),
-    )?;
-
-    println!("RawResponse: {:?}", response);
-
-    // 4. Check for success or error.
-    if let Some(result) = response.result {
-        println!("Success! Result: {}", result);
-    } else if let Some(error) = response.error {
-        eprintln!("JSON-RPC Error {}: {}", error.code, error.message);
-        if let Some(data) = error.data {
-            eprintln!("Error data: {}", data);
-        }
-    } else {
-        eprintln!("Unexpected response: {:?}", response);
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_ping() {
-        let conn = Connection::new("https://relay.walletconnect.org/rpc".to_string());
+        let conn = Connection::new(
+            "https://relay.walletconnect.org/rpc",
+            "https://relay.walletconnect.org",
+            [0; 32],
+            "35d44d49c2dee217a3eb24bb4410acc7",
+        );
         conn.ping();
     }
 }

@@ -1,15 +1,10 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use alloy::hex;
 use base64ct::{Base64UrlUnpadded, Encoding};
 use ed25519_dalek::{SigningKey, ed25519::signature::SignerMut};
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    constants::CRYPTO_JWT_TTL,
-    utils::{encode_iss, random_bytes32},
-    wallet_kit::WalletKit,
-};
+use crate::utils::{encode_iss, random_bytes32};
 
 #[derive(Debug, Clone)]
 pub struct Keypair {
@@ -79,14 +74,7 @@ fn encode_data(header: &IridiumJWTHeader, payload: &IridiumJWTPayload) -> (Vec<u
     (joined.as_bytes().to_vec(), joined)
 }
 
-/// Main signJWT function
-pub fn sign_jwt_inner(
-    sub: &str,
-    aud: &str,
-    ttl: u64,
-    keypair: &Keypair,
-    iat_opt: Option<u64>,
-) -> String {
+pub fn sign_jwt(sub: &str, aud: &str, ttl: u64, keypair: &Keypair, iat_opt: Option<u64>) -> String {
     // Get current timestamp if not provided
     let iat = iat_opt.unwrap_or_else(|| {
         SystemTime::now()
@@ -115,13 +103,4 @@ pub fn sign_jwt_inner(
     let sig_encoded = Base64UrlUnpadded::encode_string(&signature);
 
     format!("{jwt_head_payload}.{sig_encoded}")
-}
-
-pub fn sign_jwt(aud: &str) -> String {
-    let seed = WalletKit::default().client_seed;
-    let keypair = generate_keypair(Some(seed));
-
-    let sub = random_bytes32(); // randomSessionIdentifier;
-    let ttl = CRYPTO_JWT_TTL;
-    sign_jwt_inner(&hex::encode(sub), aud, ttl, &keypair, None)
 }
