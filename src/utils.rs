@@ -5,7 +5,8 @@ use url::form_urlencoded;
 
 use crate::{
     constants::{
-        DID_DELIMITER, DID_METHOD, DID_PREFIX, MULTICODEC_ED25519_BASE, MULTICODEC_ED25519_HEADER,
+        DID_DELIMITER, DID_METHOD, DID_PREFIX, MULTICODEC_ED25519_BASE,
+        MULTICODEC_ED25519_HEADER,
     },
     error::Error,
 };
@@ -27,6 +28,12 @@ pub struct RelayProtocolOptions {
     pub data: Option<String>,
 }
 
+impl From<String> for UriParameters {
+    fn from(uri: String) -> Self {
+        parse_uri(uri).unwrap()
+    }
+}
+
 pub fn parse_uri(mut input: String) -> Result<UriParameters, Error> {
     if !input.contains("wc:") {
         if let Ok(decoded_bytes) = Base64UrlUnpadded::decode_vec(&input) {
@@ -45,19 +52,20 @@ pub fn parse_uri(mut input: String) -> Result<UriParameters, Error> {
         input = input.replacen("wc:", "", 1);
     }
 
-    let (protocol, path, query_string) = if let Some(path_start) = input.find(':') {
-        let protocol = &input[..path_start];
-        let path = &input[path_start + 1..];
-        let query_string = "";
-        (protocol, path, query_string)
-    } else {
-        let path_start = 0;
-        let path_end = input.find('?').ok_or(Error::PathEndNotFound)?;
-        let protocol = "";
-        let path = &input[path_start..path_end];
-        let query_string = &input[path_end + 1..];
-        (protocol, path, query_string)
-    };
+    let (protocol, path, query_string) =
+        if let Some(path_start) = input.find(':') {
+            let protocol = &input[..path_start];
+            let path = &input[path_start + 1..];
+            let query_string = "";
+            (protocol, path, query_string)
+        } else {
+            let path_start = 0;
+            let path_end = input.find('?').ok_or(Error::PathEndNotFound)?;
+            let protocol = "";
+            let path = &input[path_start..path_end];
+            let query_string = &input[path_end + 1..];
+            (protocol, path, query_string)
+        };
 
     let required_values: Vec<&str> = path.split('@').collect();
 
@@ -99,7 +107,9 @@ pub fn parse_topic(topic: &str) -> String {
     }
 }
 
-pub fn parse_relay_params(params: &HashMap<String, String>) -> Result<RelayProtocolOptions, Error> {
+pub fn parse_relay_params(
+    params: &HashMap<String, String>,
+) -> Result<RelayProtocolOptions, Error> {
     let protocol_key = "relay-protocol";
     let data_key = "relay-data";
 
@@ -123,7 +133,8 @@ pub fn encode_iss(public_key: &[u8; 32]) -> String {
         .into_vec()
         .expect("Failed to decode Base58");
 
-    let encoded = bs58::encode([header, public_key.to_vec()].concat()).into_string();
+    let encoded =
+        bs58::encode([header, public_key.to_vec()].concat()).into_string();
 
     // 3. Prepend the base prefix ("z")
     let multicodec = format!("{}{}", MULTICODEC_ED25519_BASE, encoded);

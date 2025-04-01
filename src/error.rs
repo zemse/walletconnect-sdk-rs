@@ -13,6 +13,13 @@ pub enum Error {
     Anyhow(anyhow::Error),
     Reqwest(reqwest::Error),
     InternalError(String),
+    SerdeJsonError(serde_json::Error),
+}
+
+impl From<&str> for Error {
+    fn from(e: &str) -> Self {
+        Error::InternalError(e.to_string())
+    }
 }
 
 impl From<String> for Error {
@@ -42,5 +49,11 @@ impl From<anyhow::Error> for Error {
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         Error::Reqwest(e)
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(e: serde_json::Error) -> Self {
+        Error::SerdeJsonError(e)
     }
 }

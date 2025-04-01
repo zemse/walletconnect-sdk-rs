@@ -63,18 +63,29 @@ pub struct IridiumJWTSigned<'a> {
 
 /// Converts a struct to base64url-encoded JSON
 fn encode_json<T: ?Sized + Serialize>(val: &T) -> String {
-    Base64UrlUnpadded::encode_string(serde_json::to_string(val).unwrap().as_bytes())
+    Base64UrlUnpadded::encode_string(
+        serde_json::to_string(val).unwrap().as_bytes(),
+    )
 }
 
 /// Concatenates base64url(header) + "." + base64url(payload) and returns data + string
-fn encode_data(header: &IridiumJWTHeader, payload: &IridiumJWTPayload) -> (Vec<u8>, String) {
+fn encode_data(
+    header: &IridiumJWTHeader,
+    payload: &IridiumJWTPayload,
+) -> (Vec<u8>, String) {
     let h = encode_json(header);
     let p = encode_json(payload);
     let joined = format!("{h}.{p}");
     (joined.as_bytes().to_vec(), joined)
 }
 
-pub fn sign_jwt(sub: &str, aud: &str, ttl: u64, keypair: &Keypair, iat_opt: Option<u64>) -> String {
+pub fn sign_jwt(
+    sub: &str,
+    aud: &str,
+    ttl: u64,
+    keypair: &Keypair,
+    iat_opt: Option<u64>,
+) -> String {
     // Get current timestamp if not provided
     let iat = iat_opt.unwrap_or_else(|| {
         SystemTime::now()
