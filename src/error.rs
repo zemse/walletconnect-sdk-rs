@@ -1,4 +1,4 @@
-use crate::connection;
+use crate::rpc_types;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
@@ -9,7 +9,7 @@ pub enum Error {
     SymKeyNotMentioned,
     PathEndNotFound,
     ParseInt(std::num::ParseIntError),
-    JsonRpc(connection::JsonRpcError),
+    JsonRpc(rpc_types::JsonRpcError),
     Anyhow(anyhow::Error),
     Reqwest(reqwest::Error),
     InternalError(String),
@@ -34,8 +34,8 @@ impl From<std::num::ParseIntError> for Error {
     }
 }
 
-impl From<connection::JsonRpcError> for Error {
-    fn from(e: connection::JsonRpcError) -> Self {
+impl From<rpc_types::JsonRpcError> for Error {
+    fn from(e: rpc_types::JsonRpcError) -> Self {
         Error::JsonRpc(e)
     }
 }

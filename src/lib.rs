@@ -3,5 +3,6 @@ pub mod constants;
 pub mod error;
 pub mod paring;
 pub mod relay_auth;
+pub mod rpc_types;
 pub mod utils;
 pub mod wallet_kit;

@@ -1,5 +1,6 @@
 use crate::connection::Connection;
 use crate::error::Result;
+use crate::rpc_types::{FetchMessageResult, JsonRpcMethod};
 use crate::utils::UriParameters;
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
 use aes_gcm::{Key, Nonce};
@@ -11,7 +12,6 @@ use hkdf::Hkdf;
 use rand::RngCore;
 use serde_json::json;
 use std::str;
-use types::FetchMessageResult;
 
 pub struct Pairing<'a> {
     params: UriParameters,
@@ -30,7 +30,7 @@ impl<'a> Pairing<'a> {
 
     pub fn irn_subscribe(&self) -> Result<String> {
         self.connection.request::<String>(
-            "irn_subscribe".to_string(),
+            JsonRpcMethod::IrnSubscribe,
             Some(json!({
                 "topic": self.params.topic
             })),
@@ -39,7 +39,7 @@ impl<'a> Pairing<'a> {
 
     pub fn irn_fetch_messages(&self) -> Result<FetchMessageResult> {
         self.connection.request::<FetchMessageResult>(
-            "irn_fetchMessages".to_string(),
+            JsonRpcMethod::IrnFetchMessages,
             Some(json!({
                 "topic": self.params.topic
             })),
@@ -63,27 +63,6 @@ impl<'a> Pairing<'a> {
     }
 
     fn generate_payload() {}
-}
-
-mod types {
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct FetchMessageResult {
-        #[serde(rename = "hasMore")]
-        pub has_more: bool,
-        pub messages: Vec<Message>,
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    pub struct Message {
-        pub attestation: String,
-        pub message: String,
-        #[serde(rename = "publishedAt")]
-        pub published_at: u64,
-        pub tag: u32,
-        pub topic: String,
-    }
 }
 
 const IV_LENGTH: usize = 12;
