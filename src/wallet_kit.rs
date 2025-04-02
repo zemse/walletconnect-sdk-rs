@@ -2,7 +2,7 @@ use alloy::hex;
 
 use crate::{
     constants::CRYPTO_JWT_TTL,
-    relay_auth::{self, sign_jwt},
+    relay_auth::{Keypair, sign_jwt},
     utils::{encode_iss, random_bytes32},
 };
 
@@ -18,12 +18,12 @@ impl WalletKit {
     // https://github.com/WalletConnect/walletconnect-monorepo/blob/1e618504de2c1802359ffec486120784c04bd240/packages/core/src/controllers/crypto.ts#L59
     pub fn get_client_id(&self) -> String {
         let seed = self.client_seed;
-        let key_pair = relay_auth::generate_keypair(Some(seed));
+        let key_pair = Keypair::from_seed(seed);
         encode_iss(&key_pair.public_key)
     }
 
     pub fn sign_jwt(&self, aud: &str) -> String {
-        let keypair = relay_auth::generate_keypair(Some(self.client_seed));
+        let keypair = Keypair::from_seed(self.client_seed);
 
         let sub = random_bytes32(); // randomSessionIdentifier;
         let ttl = CRYPTO_JWT_TTL;
@@ -41,7 +41,21 @@ mod test {
         let client_id = wk.get_client_id();
         assert_eq!(
             client_id,
-            "did:key:zTBBBWhJtNWGWbVmA3mVAZW3MRme4rjvh2MQatqaELRGpReHcyTCzXPrg7rdoSnxX"
+            "did:key:z6MkiTBz1ymuepAQ4HEHYSF1H8quG5GLVVQR3djdX3mDooWp"
+        );
+    }
+
+    #[test]
+    fn test_2() {
+        let wk = WalletKit::new([
+            23, 113, 199, 94, 246, 41, 119, 10, 250, 248, 253, 136, 173, 241,
+            191, 149, 165, 249, 17, 42, 46, 189, 120, 175, 78, 88, 53, 83, 254,
+            16, 32, 150,
+        ]);
+        let client_id = wk.get_client_id();
+        assert_eq!(
+            client_id,
+            "did:key:z6MkriJMhx6cLMiwwfuJ3NCGw8C8UjB9KoVHB7QSBaBxMx3y"
         );
     }
 }

@@ -14,6 +14,9 @@ pub enum Error {
     Reqwest(reqwest::Error),
     InternalError(String),
     SerdeJsonError(serde_json::Error),
+    FromHexError(alloy::hex::FromHexError),
+    AesError(aes_gcm::Error),
+    FromUtf8Error(std::string::FromUtf8Error),
 }
 
 impl From<&str> for Error {
@@ -55,5 +58,23 @@ impl From<reqwest::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Self {
         Error::SerdeJsonError(e)
+    }
+}
+
+impl From<alloy::hex::FromHexError> for Error {
+    fn from(e: alloy::hex::FromHexError) -> Self {
+        Error::FromHexError(e)
+    }
+}
+
+impl From<aes_gcm::Error> for Error {
+    fn from(e: aes_gcm::Error) -> Self {
+        Error::AesError(e)
+    }
+}
+
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(e: std::string::FromUtf8Error) -> Self {
+        Error::FromUtf8Error(e)
     }
 }

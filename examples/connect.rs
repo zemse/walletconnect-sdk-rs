@@ -1,6 +1,4 @@
-use walletconnect_sdk::{
-    connection::Connection, paring::Pairing, wallet_kit::WalletKit,
-};
+use walletconnect_sdk::connection::Connection;
 
 fn main() {
     // ProjectId is required to prevent DOS on the relay. In case following
@@ -22,5 +20,12 @@ fn main() {
     // "Connect Wallet" and select WalletConnect
     let uri_from_dapp = "wc:d0bb3bf179a70fd10245144ac7355c52a767806c9b2d852b99fc7be935934882@2?relay-protocol=irn&symKey=2cbcbf78e71e27387de926f93569f89f73fa9093e431bebf110f959133168fc8&expiryTimestamp=1743510984&methods=wc_sessionAuthenticate";
 
-    conn.pair(uri_from_dapp).unwrap();
+    let pairing = conn.pair(uri_from_dapp).expect("pairing failed");
+
+    // inspect pairing requests if it looks good
+    println!(
+        "Pairing request: {:?} {:?}",
+        pairing.proposal_request(),
+        pairing.authenticate_request()
+    );
 }

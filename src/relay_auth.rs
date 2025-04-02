@@ -4,7 +4,7 @@ use base64ct::{Base64UrlUnpadded, Encoding};
 use ed25519_dalek::{SigningKey, ed25519::signature::SignerMut};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::{encode_iss, random_bytes32};
+use crate::utils::encode_iss;
 
 #[derive(Debug, Clone)]
 pub struct Keypair {
@@ -18,24 +18,44 @@ impl Keypair {
         let mut signing_key = SigningKey::from(self.seed);
         signing_key.sign(data).to_bytes()
     }
-}
 
-// https://github.com/WalletConnect/walletconnect-utils/blob/4d8eb66bcea89857c630017774845e872a66922a/relay/relay-auth/src/api.ts#L14
-pub fn generate_keypair(seed: Option<[u8; 32]>) -> Keypair {
-    let seed = seed.unwrap_or_else(random_bytes32);
+    pub fn from_bytes64_secret(secret_key: [u8; 64]) -> Self {
+        let mut seed = [0u8; 32];
+        let mut public_key = [0u8; 32];
 
-    let signing_key = SigningKey::from_bytes(&seed);
-    let public_key = signing_key.verifying_key().to_bytes();
+        seed.copy_from_slice(&secret_key[..32]);
+        public_key.copy_from_slice(&secret_key[32..]);
 
-    let mut secret_key = [0u8; 64];
+        let signing_key = SigningKey::from_bytes(&seed);
+        let calculated_public_key = signing_key.verifying_key().to_bytes();
 
-    secret_key[..32].copy_from_slice(&seed);
-    secret_key[32..].copy_from_slice(&public_key);
+        assert_eq!(
+            public_key, calculated_public_key,
+            "Public key does not match the signing key"
+        );
 
-    Keypair {
-        seed,
-        secret_key,
-        public_key,
+        Keypair {
+            seed,
+            secret_key,
+            public_key,
+        }
+    }
+
+    // https://github.com/WalletConnect/walletconnect-utils/blob/4d8eb66bcea89857c630017774845e872a66922a/relay/relay-auth/src/api.ts#L14
+    pub fn from_seed(seed: [u8; 32]) -> Keypair {
+        let signing_key = SigningKey::from_bytes(&seed);
+        let public_key = signing_key.verifying_key().to_bytes();
+
+        let mut secret_key = [0u8; 64];
+
+        secret_key[..32].copy_from_slice(&seed);
+        secret_key[32..].copy_from_slice(&public_key);
+
+        Keypair {
+            seed,
+            secret_key,
+            public_key,
+        }
     }
 }
 

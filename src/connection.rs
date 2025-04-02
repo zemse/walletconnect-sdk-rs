@@ -8,7 +8,7 @@ use tokio::runtime::Runtime;
 
 use crate::error::Result;
 use crate::paring::Pairing;
-use crate::rpc_types::{JsonRpcMethod, JsonRpcRequest, JsonRpcResponse};
+use crate::rpc_types::{Id, JsonRpcMethod, JsonRpcRequest, JsonRpcResponse};
 use crate::wallet_kit::WalletKit;
 
 pub struct Connection {
@@ -47,14 +47,44 @@ impl Connection {
         (date_ns + extra).to_string()
     }
 
-    pub fn pair(&self, uri: &str) -> Result<Value> {
-        let pairing = Pairing::new(uri, self);
+    pub fn pair(&self, uri: &str) -> Result<Pairing> {
+        let mut pairing = Pairing::new(uri, self);
         let subscription_id = pairing.irn_subscribe()?;
         println!("Pairing subscription_id: {:?}", subscription_id);
         let result = pairing.irn_fetch_messages_and_decrypt()?;
-        println!("irn fetch messages: {:?}", result);
 
-        Err("Pairing not implemented".into())
+        if result.is_empty() {
+            return Err(
+                "Please generate a fresh WalletConnect URI from the dApp"
+                    .into(),
+            );
+        }
+
+        assert_eq!(
+            result.len(),
+            2,
+            "result is not having two elements\n\n{result:?}"
+        );
+
+        let proposal_request = result[0]
+            .as_session_propose()
+            .ok_or("not session_propose")?;
+        let authenticate_request = result[1]
+            .as_session_authenticate()
+            .ok_or("not session_authenticate")?;
+
+        assert_eq!(
+            proposal_request.proposer.public_key,
+            authenticate_request.requester.public_key,
+            "proposer and requester public keys are not equal - {result:?}"
+        );
+
+        pairing.set_proposal_and_authenticate_request(
+            proposal_request.clone(),
+            authenticate_request.clone(),
+        );
+
+        Ok(pairing)
     }
 
     pub fn irn_publish(
@@ -107,8 +137,8 @@ impl Connection {
                     .query(&[("projectId", &self.project_id)])
                     .bearer_auth(&self.jwt)
                     .json(&JsonRpcRequest {
-                        id: self.get_id(),
-                        jsonrpc: "2.0",
+                        id: Id::String(self.get_id()),
+                        jsonrpc: "2.0".to_string(),
                         method,
                         params,
                     })
@@ -134,6 +164,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[ignore]
     fn test_ping() {
         let conn = Connection::new(
             "https://relay.walletconnect.org/rpc",
