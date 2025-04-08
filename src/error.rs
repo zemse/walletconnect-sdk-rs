@@ -17,6 +17,7 @@ pub enum Error {
     FromHexError(alloy::hex::FromHexError),
     AesError(aes_gcm::Error),
     FromUtf8Error(std::string::FromUtf8Error),
+    FmtError(std::fmt::Error),
 }
 
 impl From<&str> for Error {
@@ -76,5 +77,11 @@ impl From<aes_gcm::Error> for Error {
 impl From<std::string::FromUtf8Error> for Error {
     fn from(e: std::string::FromUtf8Error) -> Self {
         Error::FromUtf8Error(e)
+    }
+}
+
+impl From<std::fmt::Error> for Error {
+    fn from(e: std::fmt::Error) -> Self {
+        Error::FmtError(e)
     }
 }
