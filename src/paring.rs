@@ -449,6 +449,7 @@ mod tests {
         .expect("serde faield");
 
         let cacao = result.cacaos.first().unwrap();
+        cacao.verify().unwrap();
         // let runtime = Runtime::new().unwrap();
 
         // struct Hello;

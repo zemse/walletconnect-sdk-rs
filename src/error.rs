@@ -18,6 +18,7 @@ pub enum Error {
     AesError(aes_gcm::Error),
     FromUtf8Error(std::string::FromUtf8Error),
     FmtError(std::fmt::Error),
+    SignatureError(alloy::primitives::SignatureError),
 }
 
 impl From<&str> for Error {
@@ -83,5 +84,11 @@ impl From<std::string::FromUtf8Error> for Error {
 impl From<std::fmt::Error> for Error {
     fn from(e: std::fmt::Error) -> Self {
         Error::FmtError(e)
+    }
+}
+
+impl From<alloy::primitives::SignatureError> for Error {
+    fn from(e: alloy::primitives::SignatureError) -> Self {
+        Error::SignatureError(e)
     }
 }
