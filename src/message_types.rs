@@ -12,10 +12,9 @@ pub struct SessionProposeParams {
     pub relays: Vec<Relay>,
     #[serde(rename = "pairingTopic")]
     pub pairing_topic: String,
-    pub proposer: Entity,
+    pub proposer: Participant,
     #[serde(rename = "expiryTimestamp")]
     pub expiry_timestamp: u64,
-    pub id: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -34,7 +33,7 @@ pub struct Relay {
 pub struct SessionAuthenticateParams {
     #[serde(rename = "authPayload")]
     pub auth_payload: AuthPayload,
-    pub requester: Entity,
+    pub requester: Participant,
     #[serde(rename = "expiryTimestamp")]
     pub expiry_timestamp: u64,
 }
@@ -54,7 +53,7 @@ pub struct AuthPayload {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Entity {
+pub struct Participant {
     #[serde(rename = "publicKey")]
     pub public_key: String,
     pub metadata: Metadata,
@@ -71,5 +70,5 @@ pub struct Metadata {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SessionAuthenticateResponse {
     pub cacaos: Vec<Cacao>,
-    pub responder: Entity,
+    pub responder: Participant,
 }

@@ -3,6 +3,7 @@ use base64ct::{Base64UrlUnpadded, Encoding};
 use hkdf::{Hkdf, hmac::digest::Digest};
 use rand::{RngCore, rngs::OsRng};
 use std::collections::HashMap;
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use url::form_urlencoded;
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
         DID_DELIMITER, DID_METHOD, DID_PREFIX, MULTICODEC_ED25519_BASE,
         MULTICODEC_ED25519_HEADER,
     },
-    error::Error,
+    error::{Error, Result},
 };
 
 #[derive(Debug, PartialEq)]
@@ -36,7 +37,7 @@ impl From<String> for UriParameters {
     }
 }
 
-pub fn parse_uri(mut input: String) -> Result<UriParameters, Error> {
+pub fn parse_uri(mut input: String) -> Result<UriParameters> {
     if !input.contains("wc:") {
         if let Ok(decoded_bytes) = Base64UrlUnpadded::decode_vec(&input) {
             if let Ok(decoded_str) = String::from_utf8(decoded_bytes) {
@@ -113,7 +114,7 @@ pub fn parse_topic(topic: &str) -> String {
 
 pub fn parse_relay_params(
     params: &HashMap<String, String>,
-) -> Result<RelayProtocolOptions, Error> {
+) -> Result<RelayProtocolOptions> {
     let protocol_key = "relay-protocol";
     let data_key = "relay-data";
 
@@ -165,6 +166,11 @@ pub fn sha256(data: [u8; 32]) -> [u8; 32] {
         .as_slice()
         .try_into()
         .expect("Sha256 output wrong length")
+}
+
+pub fn timestamp() -> Result<String> {
+    let now = OffsetDateTime::now_utc();
+    Ok(now.format(&Rfc3339)?)
 }
 
 #[cfg(test)]

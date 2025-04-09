@@ -8,6 +8,7 @@ pub enum Error {
     InvalidUri,
     SymKeyNotMentioned,
     PathEndNotFound,
+    InvalidIrnTag(u16),
     ParseInt(std::num::ParseIntError),
     JsonRpc(rpc_types::JsonRpcError),
     Anyhow(anyhow::Error),
@@ -19,6 +20,7 @@ pub enum Error {
     FromUtf8Error(std::string::FromUtf8Error),
     FmtError(std::fmt::Error),
     SignatureError(alloy::primitives::SignatureError),
+    TimeError(time::error::Format),
 }
 
 impl From<&str> for Error {
@@ -90,5 +92,11 @@ impl From<std::fmt::Error> for Error {
 impl From<alloy::primitives::SignatureError> for Error {
     fn from(e: alloy::primitives::SignatureError) -> Self {
         Error::SignatureError(e)
+    }
+}
+
+impl From<time::error::Format> for Error {
+    fn from(e: time::error::Format) -> Self {
+        Error::TimeError(e)
     }
 }

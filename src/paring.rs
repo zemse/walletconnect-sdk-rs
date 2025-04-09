@@ -1,23 +1,32 @@
+use crate::cacao::Cacao;
 use crate::connection::Connection;
 use crate::error::Result;
-use crate::message_types::{SessionAuthenticateParams, SessionProposeParams};
-use crate::rpc_types::{FetchMessageResult, Id, JsonRpcMethod, JsonRpcParam};
-use crate::utils::UriParameters;
+use crate::message_types::{
+    SessionAuthenticateParams, SessionAuthenticateResponse,
+    SessionProposeParams,
+};
+use crate::rpc_types::{
+    EncryptedMessage, Id, IrnTag, JsonRpcMethod, JsonRpcParam, JsonRpcRequest,
+};
+use crate::utils::{UriParameters, sha256};
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
 use aes_gcm::{Key, Nonce};
 use alloy::hex;
+use alloy::primitives::Address;
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
 use chacha20poly1305::ChaCha20Poly1305;
 use rand::RngCore;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use std::str;
 
 pub struct Pairing<'a> {
     params: UriParameters,
     connection: &'a Connection,
-    proposal_request: Option<SessionProposeParams>,
-    authenticate_request: Option<SessionAuthenticateParams>,
+    proposal_request: Option<JsonRpcRequest<SessionProposeParams>>,
+    authenticate_request: Option<JsonRpcRequest<SessionAuthenticateParams>>,
+    other_public_key: Option<[u8; 32]>,
     // approve_done: bool,
 }
 
@@ -29,6 +38,7 @@ impl<'a> Pairing<'a> {
             connection,
             proposal_request: None,
             authenticate_request: None,
+            other_public_key: None,
             // approve_done: false,
         }
     }
@@ -37,85 +47,168 @@ impl<'a> Pairing<'a> {
         self.params.sym_key
     }
 
-    pub fn proposal_request(&self) -> Option<&SessionProposeParams> {
-        self.proposal_request.as_ref()
+    fn diffie_sym_key(&self) -> [u8; 32] {
+        self.connection
+            .wallet_kit
+            .derive_sym_key(self.other_public_key.unwrap())
     }
 
-    pub fn authenticate_request(&self) -> Option<&SessionAuthenticateParams> {
-        self.authenticate_request.as_ref()
+    /// Initialise the pairing process
+    ///
+    /// 1. Subscribe to the relay with the topic in the URI
+    /// 2. Fetch messages from the relay sent by the dapp
+    /// 3. Decrypt the messages
+    /// 4. Check if the first message is a session_propose and the second is a session_authenticate
+    ///
+    /// To continue the process further, use the `approve` method
+    pub fn init_pairing(&mut self) -> Result<()> {
+        let topic = &self.params.topic;
+
+        let subscription_id = self.connection.irn_subscribe(topic)?;
+        println!("Pairing subscription_id: {:?}", subscription_id);
+        // let result = self.irn_fetch_messages_and_decrypt()?;
+
+        let messages = self
+            .connection
+            .irn_fetch_messages(topic)?
+            .iter()
+            .map(|m| self.decrypt(m))
+            .collect::<Result<Vec<_>>>()?;
+
+        if messages.is_empty() {
+            return Err(
+                "Please generate a fresh WalletConnect URI from the dApp"
+                    .into(),
+            );
+        }
+
+        assert_eq!(
+            messages.len(),
+            2,
+            "messages is not having two elements\n\n{messages:?}"
+        );
+
+        let (proposal_request, authenticate_request) =
+            if messages[0].as_session_propose().is_some() {
+                (
+                    messages[0].as_session_propose().unwrap(),
+                    messages[1].as_session_authenticate().unwrap(),
+                )
+            } else {
+                (
+                    messages[1].as_session_propose().unwrap(),
+                    messages[0].as_session_authenticate().unwrap(),
+                )
+            };
+
+        assert_eq!(
+            proposal_request
+                .params
+                .as_ref()
+                .unwrap()
+                .proposer
+                .public_key,
+            authenticate_request
+                .params
+                .as_ref()
+                .unwrap()
+                .requester
+                .public_key,
+            "proposer and requester public keys are not equal - {messages:?}"
+        );
+
+        self.proposal_request = Some(proposal_request.clone());
+        self.authenticate_request = Some(authenticate_request.clone());
+        self.other_public_key = Some(hex::decode_to_array::<String, 32>(
+            authenticate_request
+                .params
+                .as_ref()
+                .unwrap()
+                .requester
+                .public_key
+                .clone(),
+        )?);
+
+        Ok(())
     }
 
-    pub(crate) fn set_proposal_and_authenticate_request(
-        &mut self,
-        proposal_request: SessionProposeParams,
-        authenticate_request: SessionAuthenticateParams,
-    ) {
-        self.proposal_request = Some(proposal_request);
-        self.authenticate_request = Some(authenticate_request);
+    pub fn get_proposal(
+        &self,
+        account_address: Address,
+    ) -> Result<(
+        Cacao,
+        JsonRpcRequest<SessionProposeParams>,
+        JsonRpcRequest<SessionAuthenticateParams>,
+    )> {
+        if self.proposal_request.is_none()
+            || self.authenticate_request.is_none()
+        {
+            return Err("Pairing not initialised".into());
+        }
+
+        let cacao = Cacao::from_auth_request(
+            &self
+                .authenticate_request
+                .as_ref()
+                .unwrap()
+                .params
+                .as_ref()
+                .unwrap()
+                .auth_payload,
+            account_address,
+        )?;
+
+        Ok((
+            cacao,
+            self.proposal_request.clone().unwrap(),
+            self.authenticate_request.clone().unwrap(),
+        ))
     }
 
-    pub fn approve(&self) {}
+    pub fn approve(&self, cacao: Cacao) -> Result<()> {
+        if cacao.signature.is_none() {
+            return Err("Cacao signature is None".into());
+        }
 
-    pub fn irn_subscribe(&self) -> Result<String> {
-        self.connection.request::<String>(
-            JsonRpcMethod::IrnSubscribe,
-            Some(json!({
-                "topic": self.params.topic
-            })),
-        )
+        let response = SessionAuthenticateResponse {
+            cacaos: vec![cacao],
+            responder: self.connection.get_participant(),
+        };
+        let message = Message {
+            jsonrpc: "2.0".to_string(),
+            method: None,
+            params: None,
+            result: Some(response),
+            id: self.authenticate_request.as_ref().unwrap().id.clone(),
+        }
+        .encrypt(
+            self.diffie_sym_key(),
+            Some(1),
+            Some(self.connection.get_public_key()),
+            None,
+        )?;
+
+        let result = self.connection.irn_publish(EncryptedMessage::new(
+            hex::encode(sha256(self.other_public_key.unwrap())),
+            message,
+            IrnTag::SessionAuthenticateResponse,
+            3600,
+        ))?;
+
+        println!("Pairing publish result: {:?}", result);
+        Ok(())
     }
 
-    pub fn irn_fetch_messages(&self) -> Result<FetchMessageResult> {
-        self.connection.request::<FetchMessageResult>(
-            JsonRpcMethod::IrnFetchMessages,
-            Some(json!({
-                "topic": self.params.topic
-            })),
-        )
-    }
-
-    pub fn irn_fetch_messages_and_decrypt(&self) -> Result<Vec<JsonRpcParam>> {
-        self.irn_fetch_messages()?
-            .messages
-            .into_iter()
-            .map(|m| -> Result<JsonRpcParam> {
-                let decrypted_message = Message::decrypt(
-                    &m.message,
-                    self.sym_key(),
-                    Some(EncodingType::Base64),
-                )?;
-
-                match decrypted_message.method {
-                    Some(JsonRpcMethod::SessionPropose) => {
-                        Ok(JsonRpcParam::SessionPropose(
-                            serde_json::from_value::<SessionProposeParams>(
-                                decrypted_message
-                                    .params
-                                    .ok_or("params not present")?,
-                            )?,
-                        ))
-                    }
-                    Some(JsonRpcMethod::SessionAuthenticate) => {
-                        Ok(JsonRpcParam::SessionAuthenticate(
-                            serde_json::from_value::<SessionAuthenticateParams>(
-                                decrypted_message
-                                    .params
-                                    .ok_or("params not present")?,
-                            )?,
-                        ))
-                    }
-                    Some(
-                        JsonRpcMethod::IrnPublish
-                        | JsonRpcMethod::IrnSubscribe
-                        | JsonRpcMethod::IrnFetchMessages,
-                    ) => Err("unexpected".into()),
-                    None => {
-                        // Method is None, it means message is a result
-                        todo!()
-                    }
-                }
-            })
-            .collect::<Result<Vec<JsonRpcParam>>>()
+    pub fn decrypt(
+        &self,
+        irn_message: &EncryptedMessage,
+    ) -> Result<JsonRpcParam> {
+        let decrypted_message = Message::decrypt(
+            &irn_message.message,
+            self.sym_key(),
+            Some(EncodingType::Base64),
+        )?;
+        decrypted_message.into_json_param()
     }
 }
 
@@ -131,6 +224,7 @@ pub struct EncryptedEnvelope {
     pub type_byte: u8,
     pub sealed: Vec<u8>,
     pub iv: Vec<u8>,
+    // only for type 1 message - helps dapp to calculate diffie_sym_key
     pub sender_public_key: Option<Vec<u8>>,
 }
 
@@ -239,12 +333,11 @@ pub enum MessageEm {
     SessionPropose { jsonrpc: String, method: String },
 }
 
-impl Message {
+impl<T: Serialize + DeserializeOwned> Message<T> {
     pub fn encrypt(
         &self,
-        sym_key: String,
+        sym_key: [u8; 32],
         type_byte: Option<u8>,
-        iv: Option<String>,
         sender_public_key: Option<String>,
         encoding: Option<EncodingType>,
     ) -> Result<String> {
@@ -253,17 +346,10 @@ impl Message {
             return Err("Missing sender public key for type 1 envelope".into());
         }
 
-        let iv = match iv {
-            Some(iv_hex) => hex::decode(iv_hex)?,
-            None => {
-                let mut iv = vec![0u8; IV_LENGTH];
-                OsRng.fill_bytes(&mut iv);
-                iv
-            }
-        };
+        let mut iv = vec![0u8; IV_LENGTH];
+        OsRng.fill_bytes(&mut iv);
 
-        let key = hex::decode(&sym_key).expect("invalid sym_key hex");
-        let key = Key::<ChaCha20Poly1305>::from_slice(&key);
+        let key = Key::<ChaCha20Poly1305>::from_slice(&sym_key);
         let cipher = ChaCha20Poly1305::new(key);
         let nonce = Nonce::from_slice(&iv);
 
@@ -282,7 +368,9 @@ impl Message {
         }
         .serialize(encoding.clone().unwrap_or(EncodingType::Base64)))
     }
+}
 
+impl Message {
     pub fn decrypt(
         cipher_text: &str,
         sym_key: [u8; 32],
@@ -294,6 +382,7 @@ impl Message {
             cipher_text,
             encoding.clone().unwrap_or(EncodingType::Base64),
         );
+        println!("decoding envelope: {encoding_params:?}");
 
         let cipher = ChaCha20Poly1305::new(key);
         let nonce = Nonce::from_slice(&encoding_params.iv);
@@ -303,6 +392,38 @@ impl Message {
         Ok(serde_json::from_str::<Self>(&str).inspect_err(|e| {
             println!("Failed to deserialize JSON-RPC request: {e}\n{str}");
         })?)
+    }
+
+    pub fn into_json_param(self) -> Result<JsonRpcParam> {
+        match self.method {
+            Some(JsonRpcMethod::SessionPropose) => {
+                Ok(JsonRpcParam::SessionPropose(serde_json::from_value::<
+                    JsonRpcRequest<SessionProposeParams>,
+                >(
+                    self.into_value()?
+                )?))
+            }
+            Some(JsonRpcMethod::SessionAuthenticate) => {
+                Ok(JsonRpcParam::SessionAuthenticate(serde_json::from_value::<
+                    JsonRpcRequest<SessionAuthenticateParams>,
+                >(
+                    self.into_value()?
+                )?))
+            }
+            Some(
+                JsonRpcMethod::IrnPublish
+                | JsonRpcMethod::IrnSubscribe
+                | JsonRpcMethod::IrnFetchMessages,
+            ) => Err("unexpected".into()),
+            None => {
+                // Method is None, it means message is a result
+                todo!()
+            }
+        }
+    }
+
+    pub fn into_value(self) -> Result<Value> {
+        Ok(serde_json::to_value(self)?)
     }
 }
 

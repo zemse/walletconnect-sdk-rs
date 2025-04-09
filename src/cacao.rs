@@ -3,6 +3,8 @@ use alloy::signers::Signature;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{Error, Result};
+use crate::message_types::AuthPayload;
+use crate::utils::timestamp;
 
 use std::fmt::{Display, Write};
 use std::str::FromStr;
@@ -18,6 +20,36 @@ pub struct Cacao {
 }
 
 impl Cacao {
+    pub fn from_auth_request(
+        auth_request: &AuthPayload,
+        account_address: Address,
+    ) -> Result<Self> {
+        let payload = CacaoPayload {
+            domain: auth_request.domain.clone(),
+            uri: auth_request.aud.clone(),
+            version: auth_request.version.clone(),
+            statement: Some(auth_request.statement.clone()),
+            nonce: Some(auth_request.nonce.clone()),
+            issued_at: Some(timestamp()?),
+            expiration_time: None,
+            not_before: None,
+            request_id: None,
+            resources: auth_request.resources.clone(),
+            iss: DID {
+                chain_id: "eip155".to_string(),
+                account_address,
+            },
+        };
+
+        Ok(Cacao {
+            header: CacaoHeader {
+                header_type: "caip122".to_string(),
+            },
+            payload,
+            signature: None,
+        })
+    }
+
     pub fn verify(&self) -> Result<()> {
         let message = self.payload.caip122_message()?;
         println!("\nmessage: {message}\n");
@@ -38,6 +70,22 @@ impl Cacao {
             Err(Error::InternalError(
                 "Cannot verify, signature is missing".to_string(),
             ))
+        }
+    }
+
+    pub fn caip122_message(&self) -> Result<String> {
+        self.payload.caip122_message()
+    }
+
+    pub fn insert_signature(&mut self, signature: Signature) -> Result<()> {
+        if self.signature.is_none() {
+            self.signature = Some(CacaoSignature {
+                signature_type: "eip191".to_string(),
+                signature: signature.to_string(),
+            });
+            Ok(())
+        } else {
+            Err(Error::InternalError("Signature already exists".to_string()))
         }
     }
 }

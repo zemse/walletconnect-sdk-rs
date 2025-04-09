@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use alloy::hex;
 use rand::Rng;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
@@ -7,8 +8,12 @@ use serde_json::{Value, json};
 use tokio::runtime::Runtime;
 
 use crate::error::Result;
+use crate::message_types::{Metadata, Participant};
 use crate::paring::Pairing;
-use crate::rpc_types::{Id, JsonRpcMethod, JsonRpcRequest, JsonRpcResponse};
+use crate::rpc_types::{
+    EncryptedMessage, FetchMessageResult, Id, JsonRpcMethod, JsonRpcRequest,
+    JsonRpcResponse,
+};
 use crate::wallet_kit::WalletKit;
 
 pub struct Connection {
@@ -16,6 +21,8 @@ pub struct Connection {
     id: usize,
     jwt: String,
     project_id: String,
+    pub wallet_kit: WalletKit,
+    metadata: Metadata,
 }
 
 impl Connection {
@@ -24,6 +31,7 @@ impl Connection {
         jwt_rpc: &str,
         project_id: &str,
         client_seed: [u8; 32],
+        metadata: Metadata,
     ) -> Self {
         let wallet_kit = WalletKit::new(client_seed);
         let initial: u16 = rand::thread_rng().r#gen();
@@ -33,6 +41,8 @@ impl Connection {
             id: initial as usize,
             jwt,
             project_id: project_id.to_string(),
+            wallet_kit,
+            metadata,
         }
     }
 
@@ -47,63 +57,59 @@ impl Connection {
         (date_ns + extra).to_string()
     }
 
+    pub fn get_public_key(&self) -> String {
+        hex::encode(self.wallet_kit.get_public_key())
+    }
+
+    pub fn get_participant(&self) -> Participant {
+        Participant {
+            public_key: self.get_public_key(),
+            metadata: self.metadata.clone(),
+        }
+    }
+
     pub fn pair(&self, uri: &str) -> Result<Pairing> {
         let mut pairing = Pairing::new(uri, self);
-        let subscription_id = pairing.irn_subscribe()?;
-        println!("Pairing subscription_id: {:?}", subscription_id);
-        let result = pairing.irn_fetch_messages_and_decrypt()?;
-
-        if result.is_empty() {
-            return Err(
-                "Please generate a fresh WalletConnect URI from the dApp"
-                    .into(),
-            );
-        }
-
-        assert_eq!(
-            result.len(),
-            2,
-            "result is not having two elements\n\n{result:?}"
-        );
-
-        let proposal_request = result[0]
-            .as_session_propose()
-            .ok_or("not session_propose")?;
-        let authenticate_request = result[1]
-            .as_session_authenticate()
-            .ok_or("not session_authenticate")?;
-
-        assert_eq!(
-            proposal_request.proposer.public_key,
-            authenticate_request.requester.public_key,
-            "proposer and requester public keys are not equal - {result:?}"
-        );
-
-        pairing.set_proposal_and_authenticate_request(
-            proposal_request.clone(),
-            authenticate_request.clone(),
-        );
-
+        pairing.init_pairing()?;
         Ok(pairing)
+    }
+
+    pub fn irn_subscribe(&self, topic: &str) -> Result<String> {
+        self.request::<String>(
+            JsonRpcMethod::IrnSubscribe,
+            Some(json!({
+                "topic": topic
+            })),
+        )
+    }
+
+    pub fn irn_fetch_messages(
+        &self,
+        topic: &str,
+    ) -> Result<Vec<EncryptedMessage>> {
+        let mut arr = vec![];
+        loop {
+            let result = self.request::<FetchMessageResult>(
+                JsonRpcMethod::IrnFetchMessages,
+                Some(json!({
+                    "topic": topic
+                })),
+            )?;
+            arr.extend(result.messages);
+            if !result.has_more {
+                break;
+            }
+        }
+        Ok(arr)
     }
 
     pub fn irn_publish(
         &self,
-        topic: &str,
-        message: &str,
-        ttl: u64,
-        prompt: bool,
-        tag: u64,
+        encrypted_message: EncryptedMessage,
     ) -> Result<Value> {
         self.request(
             JsonRpcMethod::IrnPublish,
-            Some(json!({
-                "topic": topic,
-                "message": message,
-                "ttl": ttl,
-                "prompt": prompt,
-                "tag": tag,
-            })),
+            Some(serde_json::to_value(encrypted_message)?),
         )
     }
 
@@ -120,14 +126,15 @@ impl Connection {
         ).unwrap();
     }
 
-    pub fn request<ResponseType>(
+    fn request<ResultType>(
         &self,
         method: JsonRpcMethod,
         params: Option<Value>,
-    ) -> Result<ResponseType>
+    ) -> Result<ResultType>
     where
-        ResponseType: DeserializeOwned,
+        ResultType: DeserializeOwned,
     {
+        println!("conn request {method:?} {params:?}");
         let client = Client::new();
         let rt = Runtime::new().expect("runtime failed");
         let response = rt.block_on(
@@ -145,12 +152,18 @@ impl Connection {
                     .send()
                     .into_future(),
             )?
-            .json::<JsonRpcResponse>()
-            .into_future(),
+            .text(), // .json::<JsonRpcResponse>()
+                     // .into_future(),
         )?;
+        println!("cxonn reponse {response:?}");
+
+        let response =
+            serde_json::from_str::<JsonRpcResponse>(response.as_str())?;
 
         if let Some(result) = response.result {
-            Ok(serde_json::from_value::<ResponseType>(result)?)
+            Ok(serde_json::from_value::<ResultType>(result).inspect_err(
+                |e| println!("Failed to decode JSON RPC Response Error: {e}"),
+            )?)
         } else if let Some(error) = response.error {
             Err(error.into())
         } else {
@@ -171,6 +184,12 @@ mod tests {
             "https://relay.walletconnect.org",
             "35d44d49c2dee217a3eb24bb4410acc7",
             [0; 32],
+            Metadata {
+                name: "WalletConnect Rust SDK".to_string(),
+                description: "WalletConnect Rust SDK enables to connect to relay and interact with dapp".to_string(),
+                url: "https://github.com/zemse/walletconnect-sdk".to_string(),
+                icons: vec![],
+            },
         );
         conn.ping();
     }
