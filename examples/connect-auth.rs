@@ -27,7 +27,7 @@ fn main() {
 
     // WalletConnect URI - you can get it by visiting any dApp and clicking on
     // "Connect Wallet" and select WalletConnect
-    let uri_from_dapp = "wc:e00549e7cdc2745fbb5130bc45cde21ac5a2fc5f5d7db7edd688eb22bd072560@2?relay-protocol=irn&symKey=99aa2d5ddbbe71a3c7ce229b6dad96f4c8eff5bcc9797e7a1fd2f9f3e9b78993&expiryTimestamp=1744386773&methods=wc_sessionAuthenticate";
+    let uri_from_dapp = "wc:60b429580a4c390b05661a1921a806abe0fa9891c6f38b303a519367d3aafba0@2?relay-protocol=irn&symKey=d08415aff3fb5b387b4a607ad20d5431e81e54dad759f9a658d99353a6815775&expiryTimestamp=1744387698&methods=wc_sessionAuthenticate";
 
     let pairing = conn.init_pairing(uri_from_dapp).expect("pairing failed");
 
@@ -36,7 +36,7 @@ fn main() {
 
     // inspect pairing requests if it looks good
     let (mut cacao, proposal, auth) =
-        pairing.get_proposal_old(signer.address()).unwrap();
+        pairing.get_proposal_old(signer.address(), 1).unwrap();
     println!("cacao: {cacao:?}");
     println!("proposal: {proposal:?}");
     println!("auth: {auth:?}");
@@ -46,4 +46,5 @@ fn main() {
     cacao.insert_signature(signature).unwrap();
 
     pairing.approve_with_cacao(cacao).unwrap();
+    // TODO there's error from dApp side "Signature verification failed"
 }

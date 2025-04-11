@@ -176,6 +176,7 @@ impl<'a> Pairing<'a> {
     pub fn get_proposal_old(
         &self,
         account_address: Address,
+        chain_id: u64,
     ) -> Result<(
         Cacao,
         Message<SessionProposeParams>,
@@ -197,6 +198,7 @@ impl<'a> Pairing<'a> {
                 .unwrap()
                 .auth_payload,
             account_address,
+            chain_id,
         )?;
 
         Ok((
@@ -345,6 +347,8 @@ impl<'a> Pairing<'a> {
         if cacao.signature.is_none() {
             return Err("Cacao signature is None".into());
         }
+
+        cacao.verify()?;
 
         let response = SessionAuthenticateResponse {
             cacaos: vec![cacao],

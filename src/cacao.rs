@@ -23,6 +23,7 @@ impl Cacao {
     pub fn from_auth_request(
         auth_request: &AuthPayload,
         account_address: Address,
+        chain_id: u64,
     ) -> Result<Self> {
         let payload = CacaoPayload {
             domain: auth_request.domain.clone(),
@@ -36,7 +37,7 @@ impl Cacao {
             request_id: None,
             resources: auth_request.resources.clone(),
             iss: DID {
-                chain_id: "eip155".to_string(),
+                chain_id: chain_id.to_string(),
                 account_address,
             },
         };
