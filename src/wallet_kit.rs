@@ -3,7 +3,7 @@ use alloy::hex;
 use crate::{
     constants::CRYPTO_JWT_TTL,
     relay_auth::{Keypair, sign_jwt},
-    utils::{derive_sym_key, encode_iss, random_bytes32},
+    utils::{encode_iss, random_bytes32},
 };
 
 pub struct WalletKit {
@@ -20,15 +20,6 @@ impl WalletKit {
         let seed = self.client_seed;
         let key_pair = Keypair::from_seed(seed);
         encode_iss(&key_pair.public_key)
-    }
-
-    pub fn get_public_key(&self) -> [u8; 32] {
-        let keypair = Keypair::from_seed(self.client_seed);
-        keypair.public_key
-    }
-
-    pub fn derive_sym_key(&self, other_public_key: [u8; 32]) -> [u8; 32] {
-        derive_sym_key(self.client_seed, other_public_key)
     }
 
     pub fn sign_jwt(&self, aud: &str) -> String {

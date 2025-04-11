@@ -1,5 +1,4 @@
 use crate::error::Result;
-use crate::message_types::{SessionAuthenticateParams, SessionProposeParams};
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
 use serde_json::Value;
@@ -108,6 +107,8 @@ impl EncryptedMessage {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IrnTag {
     SessionPropose = 1100,
+    SessionSettle = 1101,
+    SessionProposeResponse = 1102,
     SessionPing = 1114,
     SessionPingResponse = 1115,
     SessionAuthenticate = 1116,
@@ -124,57 +125,19 @@ pub enum JsonRpcMethod {
 
     #[serde(rename = "irn_fetchMessages")]
     IrnFetchMessages,
-
-    #[serde(rename = "wc_sessionPropose")]
-    SessionPropose,
-
-    #[serde(rename = "wc_sessionAuthenticate")]
-    SessionAuthenticate,
-}
-
-#[derive(Clone, Debug)]
-pub enum JsonRpcParam {
-    SessionPropose(JsonRpcRequest<SessionProposeParams>),
-    SessionAuthenticate(JsonRpcRequest<SessionAuthenticateParams>),
-}
-
-impl JsonRpcParam {
-    pub fn as_session_propose(
-        &self,
-    ) -> Option<&JsonRpcRequest<SessionProposeParams>> {
-        match self {
-            JsonRpcParam::SessionPropose(request) => Some(request),
-            _ => None,
-        }
-    }
-
-    pub fn as_session_authenticate(
-        &self,
-    ) -> Option<&JsonRpcRequest<SessionAuthenticateParams>> {
-        match self {
-            JsonRpcParam::SessionAuthenticate(request) => Some(request),
-            _ => None,
-        }
-    }
-
-    pub fn id(&self) -> Option<Id> {
-        match self {
-            JsonRpcParam::SessionPropose(request) => Some(request.id.clone()),
-            JsonRpcParam::SessionAuthenticate(request) => {
-                Some(request.id.clone())
-            }
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        message_types::{SessionAuthenticateParams, SessionProposeParams},
-        rpc_types::{FetchMessageResult, JsonRpcMethod, JsonRpcResponse},
+        message_types::{
+            Message, MessageMethod, SessionAuthenticateParams,
+            SessionProposeParams,
+        },
+        rpc_types::{FetchMessageResult, JsonRpcResponse},
     };
 
-    use super::{Id, JsonRpcRequest};
+    use super::Id;
 
     #[test]
     fn test_decode_id() {
@@ -190,13 +153,12 @@ mod tests {
         let req = "{\"id\":1743510684985756,\"jsonrpc\":\"2.0\",\"method\":\"wc_sessionPropose\",\"params\":{\"requiredNamespaces\":{},\"optionalNamespaces\":{\"eip155\":{\"chains\":[\"eip155:137\",\"eip155:1\",\"eip155:10\",\"eip155:324\",\"eip155:42161\",\"eip155:8453\",\"eip155:84532\",\"eip155:1301\",\"eip155:80094\",\"eip155:11155111\",\"eip155:100\",\"eip155:295\",\"eip155:1313161554\",\"eip155:5000\"],\"methods\":[\"personal_sign\",\"eth_accounts\",\"eth_requestAccounts\",\"eth_sendRawTransaction\",\"eth_sendTransaction\",\"eth_sign\",\"eth_signTransaction\",\"eth_signTypedData\",\"eth_signTypedData_v3\",\"eth_signTypedData_v4\",\"wallet_addEthereumChain\",\"wallet_getAssets\",\"wallet_getCallsStatus\",\"wallet_getCapabilities\",\"wallet_getPermissions\",\"wallet_grantPermissions\",\"wallet_registerOnboarding\",\"wallet_requestPermissions\",\"wallet_revokePermissions\",\"wallet_scanQRCode\",\"wallet_sendCalls\",\"wallet_switchEthereumChain\",\"wallet_watchAsset\"],\"events\":[\"chainChanged\",\"accountsChanged\"]}},\"relays\":[{\"protocol\":\"irn\"}],\"pairingTopic\":\"d0bb3bf179a70fd10245144ac7355c52a767806c9b2d852b99fc7be935934882\",\"proposer\":{\"publicKey\":\"04f1c07b7205c273b6af5b85ac267cbe28c22d036873ffe4621abc4d9213430e\",\"metadata\":{\"name\":\"AppKit Lab\",\"description\":\"AppKit Lab is the test environment for Reown's AppKit\",\"url\":\"https://appkit-lab.reown.com\",\"icons\":[\"https://appkit-lab.reown.com/favicon.svg\"]}},\"expiryTimestamp\":1743510984,\"id\":1743510684985756}}";
 
         let decoded =
-            serde_json::from_str::<JsonRpcRequest<SessionProposeParams>>(req)
-                .unwrap();
+            serde_json::from_str::<Message<SessionProposeParams>>(req).unwrap();
 
         println!("Decoded: {decoded:?}");
 
         assert_eq!(decoded.id.to_u128().unwrap(), 1743510684985756);
-        assert_eq!(decoded.method, JsonRpcMethod::SessionPropose);
+        assert_eq!(decoded.method, Some(MessageMethod::SessionPropose));
         assert_eq!(decoded.jsonrpc, "2.0");
         assert!(decoded.params.is_some());
         let params = decoded.params.unwrap();
@@ -214,15 +176,14 @@ mod tests {
     fn test_decode_wc_session_authenticate() {
         let req = "{\"id\":1743510684985985,\"jsonrpc\":\"2.0\",\"method\":\"wc_sessionAuthenticate\",\"params\":{\"authPayload\":{\"type\":\"caip122\",\"chains\":[\"eip155:137\",\"eip155:1\",\"eip155:10\",\"eip155:324\",\"eip155:42161\",\"eip155:8453\",\"eip155:84532\",\"eip155:1301\",\"eip155:80094\",\"eip155:11155111\",\"eip155:100\",\"eip155:295\",\"eip155:1313161554\",\"eip155:5000\"],\"statement\":\"Please sign with your account\",\"aud\":\"https://appkit-lab.reown.com\",\"domain\":\"appkit-lab.reown.com\",\"version\":\"1\",\"nonce\":\"cfab4ebf5b80e510b9812b06fb62af56ca7e2c0115d4b88bdeec024313451e6f\",\"iat\":\"2025-04-01T12:31:24.985Z\",\"resources\":[\"urn:recap:eyJhdHQiOnsiZWlwMTU1Ijp7InJlcXVlc3QvZXRoX2FjY291bnRzIjpbe31dLCJyZXF1ZXN0L2V0aF9yZXF1ZXN0QWNjb3VudHMiOlt7fV0sInJlcXVlc3QvZXRoX3NlbmRSYXdUcmFuc2FjdGlvbiI6W3t9XSwicmVxdWVzdC9ldGhfc2VuZFRyYW5zYWN0aW9uIjpbe31dLCJyZXF1ZXN0L2V0aF9zaWduIjpbe31dLCJyZXF1ZXN0L2V0aF9zaWduVHJhbnNhY3Rpb24iOlt7fV0sInJlcXVlc3QvZXRoX3NpZ25UeXBlZERhdGEiOlt7fV0sInJlcXVlc3QvZXRoX3NpZ25UeXBlZERhdGFfdjMiOlt7fV0sInJlcXVlc3QvZXRoX3NpZ25UeXBlZERhdGFfdjQiOlt7fV0sInJlcXVlc3QvcGVyc29uYWxfc2lnbiI6W3t9XSwicmVxdWVzdC93YWxsZXRfYWRkRXRoZXJldW1DaGFpbiI6W3t9XSwicmVxdWVzdC93YWxsZXRfZ2V0QXNzZXRzIjpbe31dLCJyZXF1ZXN0L3dhbGxldF9nZXRDYWxsc1N0YXR1cyI6W3t9XSwicmVxdWVzdC93YWxsZXRfZ2V0Q2FwYWJpbGl0aWVzIjpbe31dLCJyZXF1ZXN0L3dhbGxldF9nZXRQZXJtaXNzaW9ucyI6W3t9XSwicmVxdWVzdC93YWxsZXRfZ3JhbnRQZXJtaXNzaW9ucyI6W3t9XSwicmVxdWVzdC93YWxsZXRfcmVnaXN0ZXJPbmJvYXJkaW5nIjpbe31dLCJyZXF1ZXN0L3dhbGxldF9yZXF1ZXN0UGVybWlzc2lvbnMiOlt7fV0sInJlcXVlc3Qvd2FsbGV0X3Jldm9rZVBlcm1pc3Npb25zIjpbe31dLCJyZXF1ZXN0L3dhbGxldF9zY2FuUVJDb2RlIjpbe31dLCJyZXF1ZXN0L3dhbGxldF9zZW5kQ2FsbHMiOlt7fV0sInJlcXVlc3Qvd2FsbGV0X3N3aXRjaEV0aGVyZXVtQ2hhaW4iOlt7fV0sInJlcXVlc3Qvd2FsbGV0X3dhdGNoQXNzZXQiOlt7fV19fX0\"]},\"requester\":{\"publicKey\":\"04f1c07b7205c273b6af5b85ac267cbe28c22d036873ffe4621abc4d9213430e\",\"metadata\":{\"name\":\"AppKit Lab\",\"description\":\"AppKit Lab is the test environment for Reown's AppKit\",\"url\":\"https://appkit-lab.reown.com\",\"icons\":[\"https://appkit-lab.reown.com/favicon.svg\"]}},\"expiryTimestamp\":1743514284}}";
 
-        let decoded = serde_json::from_str::<
-            JsonRpcRequest<SessionAuthenticateParams>,
-        >(req)
-        .unwrap();
+        let decoded =
+            serde_json::from_str::<Message<SessionAuthenticateParams>>(req)
+                .unwrap();
 
         println!("Decoded: {decoded:?}");
 
         assert_eq!(decoded.id.to_u128().unwrap(), 1743510684985985);
-        assert_eq!(decoded.method, JsonRpcMethod::SessionAuthenticate);
+        assert_eq!(decoded.method, Some(MessageMethod::SessionAuthenticate));
         assert_eq!(decoded.jsonrpc, "2.0");
         assert!(decoded.params.is_some());
         let params = decoded.params.unwrap();

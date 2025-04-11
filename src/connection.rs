@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use alloy::hex;
 use rand::Rng;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
@@ -8,7 +7,7 @@ use serde_json::{Value, json};
 use tokio::runtime::Runtime;
 
 use crate::error::Result;
-use crate::message_types::{Metadata, Participant};
+use crate::message_types::Metadata;
 use crate::paring::Pairing;
 use crate::rpc_types::{
     EncryptedMessage, FetchMessageResult, Id, JsonRpcMethod, JsonRpcRequest,
@@ -21,8 +20,7 @@ pub struct Connection {
     id: usize,
     jwt: String,
     project_id: String,
-    pub wallet_kit: WalletKit,
-    metadata: Metadata,
+    pub metadata: Metadata,
 }
 
 impl Connection {
@@ -41,12 +39,11 @@ impl Connection {
             id: initial as usize,
             jwt,
             project_id: project_id.to_string(),
-            wallet_kit,
             metadata,
         }
     }
 
-    fn get_id(&self) -> String {
+    pub(crate) fn get_id(&self) -> Id {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .expect("time went backwards");
@@ -54,21 +51,10 @@ impl Connection {
         let date_ns = now.as_millis() * 1_000_000;
         let extra = self.id as u128;
 
-        (date_ns + extra).to_string()
+        (date_ns + extra).into()
     }
 
-    pub fn get_public_key(&self) -> String {
-        hex::encode(self.wallet_kit.get_public_key())
-    }
-
-    pub fn get_participant(&self) -> Participant {
-        Participant {
-            public_key: self.get_public_key(),
-            metadata: self.metadata.clone(),
-        }
-    }
-
-    pub fn pair(&self, uri: &str) -> Result<Pairing> {
+    pub fn init_pairing(&self, uri: &str) -> Result<Pairing> {
         let mut pairing = Pairing::new(uri, self);
         pairing.init_pairing()?;
         Ok(pairing)
@@ -144,7 +130,7 @@ impl Connection {
                     .query(&[("projectId", &self.project_id)])
                     .bearer_auth(&self.jwt)
                     .json(&JsonRpcRequest {
-                        id: Id::String(self.get_id()),
+                        id: self.get_id(),
                         jsonrpc: "2.0".to_string(),
                         method,
                         params,

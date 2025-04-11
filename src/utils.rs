@@ -2,7 +2,10 @@ use alloy::{hex, signers::k256::sha2::Sha256};
 use base64ct::{Base64UrlUnpadded, Encoding};
 use hkdf::{Hkdf, hmac::digest::Digest};
 use rand::{RngCore, rngs::OsRng};
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    time::{SystemTime, UNIX_EPOCH},
+};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use url::form_urlencoded;
 
@@ -168,7 +171,15 @@ pub fn sha256(data: [u8; 32]) -> [u8; 32] {
         .expect("Sha256 output wrong length")
 }
 
-pub fn timestamp() -> Result<String> {
+pub const MINUTES: u64 = 60;
+pub const HOURS: u64 = 60 * MINUTES;
+pub const DAYS: u64 = 24 * HOURS;
+
+pub fn unix_timestamp() -> Result<u64> {
+    Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
+}
+
+pub fn str_timestamp() -> Result<String> {
     let now = OffsetDateTime::now_utc();
     Ok(now.format(&Rfc3339)?)
 }

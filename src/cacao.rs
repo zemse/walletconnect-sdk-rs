@@ -4,7 +4,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{Error, Result};
 use crate::message_types::AuthPayload;
-use crate::utils::timestamp;
+use crate::utils::str_timestamp;
 
 use std::fmt::{Display, Write};
 use std::str::FromStr;
@@ -30,7 +30,7 @@ impl Cacao {
             version: auth_request.version.clone(),
             statement: Some(auth_request.statement.clone()),
             nonce: Some(auth_request.nonce.clone()),
-            issued_at: Some(timestamp()?),
+            issued_at: Some(str_timestamp()?),
             expiration_time: None,
             not_before: None,
             request_id: None,

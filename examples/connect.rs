@@ -27,23 +27,34 @@ fn main() {
 
     // WalletConnect URI - you can get it by visiting any dApp and clicking on
     // "Connect Wallet" and select WalletConnect
-    let uri_from_dapp = "wc:d10e1168921368fd38b0ef81728779e2d8b8e311983ec4e42e5b1d20830c36c9@2?relay-protocol=irn&symKey=99398d0e827746535bf55791b3c76d2ba09f89e6bf9c863a2149b033e2085024&expiryTimestamp=1744207726&methods=wc_sessionAuthenticate";
+    let uri_from_dapp = "wc:ef2c61c8b0afae3f4d1b03afde31d5067f4483eb0c99267e5405576722bef16d@2?relay-protocol=irn&symKey=b27591b7d74c383292a5132dc056eb417125b4324f8b9bf1d077773c3aaf6917&expiryTimestamp=1744374176&methods=wc_sessionAuthenticate";
 
-    let pairing = conn.pair(uri_from_dapp).expect("pairing failed");
+    let pairing = conn.init_pairing(uri_from_dapp).expect("pairing failed");
 
     let private_key = SigningKey::random(&mut OsRng);
     let signer = PrivateKeySigner::from(private_key);
 
-    // inspect pairing requests if it looks good
-    let (mut cacao, proposal, auth) =
-        pairing.get_proposal(signer.address()).unwrap();
-    println!("cacao: {cacao:?}");
-    println!("proposal: {proposal:?}");
-    println!("auth: {auth:?}");
+    // Using route 1
+    // {
 
-    let message = cacao.caip122_message().unwrap();
-    let signature = signer.sign_message_sync(message.as_bytes()).unwrap();
-    cacao.insert_signature(signature).unwrap();
+    //     // inspect pairing requests if it looks good
+    //     let (mut cacao, proposal, auth) =
+    //         pairing.get_proposal_old(signer.address()).unwrap();
+    //     println!("cacao: {cacao:?}");
+    //     println!("proposal: {proposal:?}");
+    //     println!("auth: {auth:?}");
 
-    pairing.approve(cacao).unwrap();
+    //     let message = cacao.caip122_message().unwrap();
+    //     let signature = signer.sign_message_sync(message.as_bytes()).unwrap();
+    //     cacao.insert_signature(signature).unwrap();
+
+    //     pairing.approve_with_cacao(cacao).unwrap();
+    // }
+
+    // Using route 2
+    {
+        pairing
+            .approve_with_session_settle(signer.address())
+            .unwrap();
+    }
 }

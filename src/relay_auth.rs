@@ -4,7 +4,7 @@ use base64ct::{Base64UrlUnpadded, Encoding};
 use ed25519_dalek::{SigningKey, ed25519::signature::SignerMut};
 use serde::{Deserialize, Serialize};
 
-use crate::utils::encode_iss;
+use crate::utils::{encode_iss, random_bytes32};
 
 #[derive(Debug, Clone)]
 pub struct Keypair {
@@ -14,6 +14,10 @@ pub struct Keypair {
 }
 
 impl Keypair {
+    pub fn generate() -> Self {
+        Keypair::from_seed(random_bytes32())
+    }
+
     pub fn sign(&self, data: &[u8]) -> [u8; 64] {
         let mut signing_key = SigningKey::from(self.seed);
         signing_key.sign(data).to_bytes()

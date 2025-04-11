@@ -21,6 +21,7 @@ pub enum Error {
     FmtError(std::fmt::Error),
     SignatureError(alloy::primitives::SignatureError),
     TimeError(time::error::Format),
+    SystemTimeError(std::time::SystemTimeError),
 }
 
 impl From<&str> for Error {
@@ -98,5 +99,11 @@ impl From<alloy::primitives::SignatureError> for Error {
 impl From<time::error::Format> for Error {
     fn from(e: time::error::Format) -> Self {
         Error::TimeError(e)
+    }
+}
+
+impl From<std::time::SystemTimeError> for Error {
+    fn from(e: std::time::SystemTimeError) -> Self {
+        Error::SystemTimeError(e)
     }
 }
