@@ -3,11 +3,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::Number;
 use serde_json::Value;
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Id {
     String(String),
     Number(Number),
+    U128(u128),
 }
 
 impl From<String> for Id {
@@ -28,7 +29,14 @@ impl Id {
         match self {
             Id::String(s) => Ok(s.parse::<u128>()?),
             Id::Number(n) => n.as_u128().ok_or("number too big".into()),
+            Id::U128(n) => Ok(*n),
         }
+    }
+}
+
+impl PartialEq for Id {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_u128().unwrap().eq(&other.to_u128().unwrap())
     }
 }
 
