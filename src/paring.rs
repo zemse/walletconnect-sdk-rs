@@ -1,7 +1,7 @@
 use crate::cacao::Cacao;
 use crate::connection::Connection;
 use crate::error::{Error, Result};
-use crate::message_types::{
+use crate::message::{
     Message, MessageMethod, MessageParam, Namespace, Participant, Relay,
     SessionAuthenticateParams, SessionAuthenticateResponse,
     SessionProposeParams, SessionProposeResponse, SessionSettleParams,
@@ -397,10 +397,10 @@ impl<'a> Pairing<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::message_types::TYPE_1;
+    use crate::message::TYPE_1;
     use crate::rpc_types::Id;
     use crate::{
-        message_types::SessionAuthenticateResponse,
+        message::SessionAuthenticateResponse,
         relay_auth::Keypair,
         utils::{derive_sym_key, parse_uri, sha256},
     };

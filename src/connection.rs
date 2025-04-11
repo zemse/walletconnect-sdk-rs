@@ -7,7 +7,7 @@ use serde_json::{Value, json};
 use tokio::runtime::Runtime;
 
 use crate::error::Result;
-use crate::message_types::Metadata;
+use crate::message::Metadata;
 use crate::paring::Pairing;
 use crate::rpc_types::{
     EncryptedMessage, FetchMessageResult, Id, JsonRpcMethod, JsonRpcRequest,

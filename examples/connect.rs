@@ -2,7 +2,7 @@ use alloy::signers::{
     SignerSync, k256::ecdsa::SigningKey, local::PrivateKeySigner,
 };
 use rand::rngs::OsRng;
-use walletconnect_sdk::{connection::Connection, message_types::Metadata};
+use walletconnect_sdk::{connection::Connection, message::Metadata};
 
 fn main() {
     // ProjectId is required to prevent DOS on the relay. In case following

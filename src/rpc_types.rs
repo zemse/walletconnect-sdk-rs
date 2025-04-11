@@ -130,7 +130,7 @@ pub enum JsonRpcMethod {
 #[cfg(test)]
 mod tests {
     use crate::{
-        message_types::{
+        message::{
             Message, MessageMethod, SessionAuthenticateParams,
             SessionProposeParams,
         },
