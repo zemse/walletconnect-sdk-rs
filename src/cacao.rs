@@ -53,12 +53,10 @@ impl Cacao {
 
     pub fn verify(&self) -> Result<()> {
         let message = self.payload.caip122_message()?;
-        println!("\nmessage: {message}\n");
         if let Some(signature) = &self.signature {
             let address = signature
                 .into_alloy_signature()?
                 .recover_address_from_msg(message)?;
-            println!("address: {address}");
             if address == self.payload.iss.account_address {
                 Ok(())
             } else {

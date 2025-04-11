@@ -1,7 +1,7 @@
-use alloy::signers::{k256::ecdsa::SigningKey, local::PrivateKeySigner};
-use rand::rngs::OsRng;
 use walletconnect_sdk::{connection::Connection, message::Metadata};
 
+/// This example shows how to use connect to a dApp using our wallet and use the
+/// wc_sessionSettle method. Does not require private key.
 fn main() {
     // ProjectId is required to prevent DOS on the relay. In case following
     // cause rate limits, you can create your own from https://cloud.reown.com
@@ -29,10 +29,11 @@ fn main() {
 
     let mut pairing = conn.init_pairing(uri_from_dapp).expect("pairing failed");
 
-    let private_key = SigningKey::random(&mut OsRng);
-    let signer = PrivateKeySigner::from(private_key);
-
     pairing
-        .approve_with_session_settle(signer.address())
+        .approve_with_session_settle(
+            "0x0000000000000000000000000000000000000123"
+                .parse()
+                .unwrap(),
+        )
         .unwrap();
 }

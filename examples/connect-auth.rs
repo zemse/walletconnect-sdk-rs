@@ -4,6 +4,8 @@ use alloy::signers::{
 use rand::rngs::OsRng;
 use walletconnect_sdk::{connection::Connection, message::Metadata};
 
+/// This example shows how to use connect to a dApp using our wallet and use the
+/// wc_sessionAuthenticate method. This requires private key to sign the CACAO.
 fn main() {
     // ProjectId is required to prevent DOS on the relay. In case following
     // cause rate limits, you can create your own from https://cloud.reown.com

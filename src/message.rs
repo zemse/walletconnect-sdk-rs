@@ -57,7 +57,6 @@ impl<T: Serialize + DeserializeOwned> Message<T> {
         let nonce = Nonce::from_slice(&iv);
 
         let message = serde_json::to_string(self)?;
-        println!("encrypting: {message:?}");
         let sealed = cipher
             .encrypt(nonce, message.as_bytes())
             .expect("encryption failed");

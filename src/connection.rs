@@ -120,7 +120,6 @@ impl Connection {
     where
         ResultType: DeserializeOwned,
     {
-        println!("conn request {method:?} {params:?}");
         let client = Client::new();
         let rt = Runtime::new().expect("runtime failed");
         let response = rt.block_on(
@@ -141,7 +140,6 @@ impl Connection {
             .text(), // .json::<JsonRpcResponse>()
                      // .into_future(),
         )?;
-        println!("cxonn reponse {response:?}");
 
         let response =
             serde_json::from_str::<JsonRpcResponse>(response.as_str())?;
