@@ -1,3 +1,4 @@
+use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -57,6 +58,7 @@ impl<T: Serialize + DeserializeOwned> Message<T> {
         let nonce = Nonce::from_slice(&iv);
 
         let message = serde_json::to_string(self)?;
+        debug!("encrypting message -> {message}");
         let sealed = cipher
             .encrypt(nonce, message.as_bytes())
             .expect("encryption failed");
@@ -114,6 +116,7 @@ impl Message {
         let decrypted =
             cipher.decrypt(nonce, encoding_params.sealed.as_ref())?;
         let str = String::from_utf8(decrypted)?;
+        debug!("decrypted message -> {str}");
         Ok(serde_json::from_str::<Self>(&str).inspect_err(|e| {
             println!("Failed to deserialize JSON-RPC request: {e}\n{str}");
         })?)
@@ -141,37 +144,6 @@ impl Message {
             id: self.id.clone(),
         })
     }
-
-    // pub fn into_json_param(self) -> Result<MessageParam> {
-    //     match self.method {
-    //         Some(MessageMethod::SessionPropose) => {
-    //             Ok(MessageParam::SessionPropose(serde_json::from_value::<
-    //                 Message<SessionProposeParams>,
-    //             >(
-    //                 self.into_value()?
-    //             )?))
-    //         }
-    //         Some(MessageMethod::SessionAuthenticate) => {
-    //             Ok(MessageParam::SessionAuthenticate(serde_json::from_value::<
-    //                 Message<SessionAuthenticateParams>,
-    //             >(
-    //                 self.into_value()?
-    //             )?))
-    //         }
-    //         Some(MessageMethod::SessionSettle) => {
-    //             Ok(MessageParam::SessionSettle(serde_json::from_value::<
-    //                 Message<SessionSettleParams>,
-    //             >(
-    //                 self.into_value()?
-    //             )?))
-    //         }
-
-    //         None => {
-    //             // Method is None, it means message is a result
-    //             todo!()
-    //         }
-    //     }
-    // }
 
     pub fn into_value(self) -> Result<Value> {
         Ok(serde_json::to_value(self)?)

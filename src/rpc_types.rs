@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
@@ -48,6 +50,12 @@ pub struct JsonRpcRequest<ParamType = Value> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<ParamType>, // Could be array or object
     pub id: Id,
+}
+
+impl Display for JsonRpcRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", serde_json::to_string(self).unwrap())
+    }
 }
 
 /// A basic JSON-RPC 2.0 response with either a result or an error.

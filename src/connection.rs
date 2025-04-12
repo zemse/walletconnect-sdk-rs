@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use log::debug;
 use rand::Rng;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
@@ -120,6 +121,13 @@ impl Connection {
     where
         ResultType: DeserializeOwned,
     {
+        let request = JsonRpcRequest {
+            id: self.get_id(),
+            jsonrpc: "2.0".to_string(),
+            method,
+            params,
+        };
+        debug!("request -> {request}");
         let client = Client::new();
         let rt = Runtime::new().expect("runtime failed");
         let response = rt.block_on(
@@ -128,19 +136,13 @@ impl Connection {
                     .post(&self.rpc)
                     .query(&[("projectId", &self.project_id)])
                     .bearer_auth(&self.jwt)
-                    .json(&JsonRpcRequest {
-                        id: self.get_id(),
-                        jsonrpc: "2.0".to_string(),
-                        method,
-                        params,
-                    })
+                    .json(&request)
                     .send()
                     .into_future(),
             )?
-            .text(), // .json::<JsonRpcResponse>()
-                     // .into_future(),
+            .text(),
         )?;
-
+        debug!("response -> {response}");
         let response =
             serde_json::from_str::<JsonRpcResponse>(response.as_str())?;
 

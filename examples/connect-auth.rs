@@ -7,6 +7,8 @@ use walletconnect_sdk::{connection::Connection, message::Metadata};
 /// This example shows how to use connect to a dApp using our wallet and use the
 /// wc_sessionAuthenticate method. This requires private key to sign the CACAO.
 fn main() {
+    env_logger::init();
+
     // ProjectId is required to prevent DOS on the relay. In case following
     // cause rate limits, you can create your own from https://cloud.reown.com
     let project_id = "35d44d49c2dee217a3eb24bb4410acc7";
