@@ -6,7 +6,8 @@ use walletconnect_sdk::{connection::Connection, message::Metadata};
 
 /// This example shows how to use connect to a dApp using our wallet and use the
 /// wc_sessionAuthenticate method. This requires private key to sign the CACAO.
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
     // ProjectId is required to prevent DOS on the relay. In case following
@@ -33,7 +34,10 @@ fn main() {
     // "Connect Wallet" and select WalletConnect
     let uri_from_dapp = "wc:60b429580a4c390b05661a1921a806abe0fa9891c6f38b303a519367d3aafba0@2?relay-protocol=irn&symKey=d08415aff3fb5b387b4a607ad20d5431e81e54dad759f9a658d99353a6815775&expiryTimestamp=1744387698&methods=wc_sessionAuthenticate";
 
-    let pairing = conn.init_pairing(uri_from_dapp).expect("pairing failed");
+    let pairing = conn
+        .init_pairing(uri_from_dapp)
+        .await
+        .expect("pairing failed");
 
     let private_key = SigningKey::random(&mut OsRng);
     let signer = PrivateKeySigner::from(private_key);
@@ -49,6 +53,6 @@ fn main() {
     let signature = signer.sign_message_sync(message.as_bytes()).unwrap();
     cacao.insert_signature(signature).unwrap();
 
-    pairing.approve_with_cacao(cacao).unwrap();
+    pairing.approve_with_cacao(cacao).await.unwrap();
     // TODO there's error from dApp side "Signature verification failed"
 }

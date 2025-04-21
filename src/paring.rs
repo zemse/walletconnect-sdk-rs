@@ -57,10 +57,10 @@ impl<'a> Pairing<'a> {
     /// 4. Check if the first message is a session_propose and the second is a session_authenticate
     ///
     /// To continue the process further, use the `approve` method
-    pub fn init_pairing(&mut self) -> Result<()> {
-        self.subscribe(Topic::Initial)?;
+    pub async fn init_pairing(&mut self) -> Result<()> {
+        self.subscribe(Topic::Initial).await?;
 
-        let messages = self.fetch_messages(Topic::Initial)?;
+        let messages = self.fetch_messages(Topic::Initial).await?;
 
         if messages.is_empty() {
             return Err(
@@ -114,7 +114,7 @@ impl<'a> Pairing<'a> {
     /// 1. Create a SessionProposeResponse message on the SessionProposal message id, mention our public key in it.
     /// 2. Create a SessionSettle message with the session properties encrypted using the derived symmetric key
     /// 3. Also subscribe to the topic derived from the symmetric key to receive messages from the dappcxd
-    pub fn approve_with_session_settle(
+    pub async fn approve_with_session_settle(
         &mut self,
         account_address: Address,
     ) -> Result<()> {
@@ -133,9 +133,10 @@ impl<'a> Pairing<'a> {
             Some(0),
             IrnTag::SessionProposeResponse,
             3600,
-        )?;
+        )
+        .await?;
 
-        self.subscribe(Topic::Derived)?;
+        self.subscribe(Topic::Derived).await?;
 
         let session_settle = self.new_message(MessageParam::SessionSettle(
             SessionSettleParams {
@@ -176,7 +177,8 @@ impl<'a> Pairing<'a> {
             Some(0),
             IrnTag::SessionSettle,
             3600,
-        )?;
+        )
+        .await?;
 
         // TODO handle further session
         // let messages = self.fetch_messages(Topic::Derived)?;
@@ -190,7 +192,7 @@ impl<'a> Pairing<'a> {
     /// 1. Create a SessionAuthenticateResponse message on the
     ///    SessionAuthenticate message id. Encrypt the message using derived
     ///    symetric key and mention our public key by using the type 1 envelope.
-    pub fn approve_with_cacao(&self, cacao: Cacao) -> Result<()> {
+    pub async fn approve_with_cacao(&self, cacao: Cacao) -> Result<()> {
         if cacao.signature.is_none() {
             return Err("Cacao signature is None".into());
         }
@@ -212,7 +214,8 @@ impl<'a> Pairing<'a> {
             Some(1),
             IrnTag::SessionAuthenticateResponse,
             3600,
-        )?;
+        )
+        .await?;
 
         Ok(())
     }
@@ -230,19 +233,20 @@ impl<'a> Pairing<'a> {
     /// Subscribe to the topic so we can fetch messages
     ///
     /// This returns subscription id - not sure how it is useful
-    fn subscribe(&self, topic: Topic) -> Result<String> {
-        self.connection.irn_subscribe(&self.topic(topic)?)
+    async fn subscribe(&self, topic: Topic) -> Result<String> {
+        self.connection.irn_subscribe(&self.topic(topic)?).await
     }
 
-    fn fetch_messages(&self, topic: Topic) -> Result<Vec<Message>> {
+    async fn fetch_messages(&self, topic: Topic) -> Result<Vec<Message>> {
         self.connection
-            .irn_fetch_messages(&self.topic(topic)?)?
+            .irn_fetch_messages(&self.topic(topic)?)
+            .await?
             .iter()
             .map(|m| Message::decrypt(&m.message, self.sym_key(topic)?, None))
             .collect()
     }
 
-    pub fn send_message<T>(
+    pub async fn send_message<T>(
         &self,
         topic: Topic,
         message: Message<T>,
@@ -260,12 +264,15 @@ impl<'a> Pairing<'a> {
             None,
         )?;
 
-        let result = self.connection.irn_publish(EncryptedMessage::new(
-            self.topic(topic)?,
-            cipher_text,
-            tag,
-            ttl,
-        ))?;
+        let result = self
+            .connection
+            .irn_publish(EncryptedMessage::new(
+                self.topic(topic)?,
+                cipher_text,
+                tag,
+                ttl,
+            ))
+            .await?;
 
         Ok(result)
     }

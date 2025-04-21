@@ -2,7 +2,8 @@ use walletconnect_sdk::{connection::Connection, message::Metadata};
 
 /// This example shows how to use connect to a dApp using our wallet and use the
 /// wc_sessionSettle method. Does not require private key.
-fn main() {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
     // ProjectId is required to prevent DOS on the relay. In case following
@@ -29,7 +30,10 @@ fn main() {
     // "Connect Wallet" and select WalletConnect
     let uri_from_dapp = "wc:ef2c61c8b0afae3f4d1b03afde31d5067f4483eb0c99267e5405576722bef16d@2?relay-protocol=irn&symKey=b27591b7d74c383292a5132dc056eb417125b4324f8b9bf1d077773c3aaf6917&expiryTimestamp=1744374176&methods=wc_sessionAuthenticate";
 
-    let mut pairing = conn.init_pairing(uri_from_dapp).expect("pairing failed");
+    let mut pairing = conn
+        .init_pairing(uri_from_dapp)
+        .await
+        .expect("pairing failed");
 
     pairing
         .approve_with_session_settle(
@@ -37,5 +41,6 @@ fn main() {
                 .parse()
                 .unwrap(),
         )
-        .unwrap();
+        .await
+        .expect("approve failed");
 }

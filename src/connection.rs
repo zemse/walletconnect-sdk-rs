@@ -5,7 +5,6 @@ use rand::Rng;
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
-use tokio::runtime::Runtime;
 
 use crate::error::Result;
 use crate::message::Metadata;
@@ -55,33 +54,36 @@ impl Connection {
         (date_ns + extra).into()
     }
 
-    pub fn init_pairing(&self, uri: &str) -> Result<Pairing> {
+    pub async fn init_pairing(&self, uri: &str) -> Result<Pairing> {
         let mut pairing = Pairing::new(uri, self);
-        pairing.init_pairing()?;
+        pairing.init_pairing().await?;
         Ok(pairing)
     }
 
-    pub fn irn_subscribe(&self, topic: &str) -> Result<String> {
+    pub async fn irn_subscribe(&self, topic: &str) -> Result<String> {
         self.request::<String>(
             JsonRpcMethod::IrnSubscribe,
             Some(json!({
                 "topic": topic
             })),
         )
+        .await
     }
 
-    pub fn irn_fetch_messages(
+    pub async fn irn_fetch_messages(
         &self,
         topic: &str,
     ) -> Result<Vec<EncryptedMessage>> {
         let mut arr = vec![];
         loop {
-            let result = self.request::<FetchMessageResult>(
-                JsonRpcMethod::IrnFetchMessages,
-                Some(json!({
-                    "topic": topic
-                })),
-            )?;
+            let result = self
+                .request::<FetchMessageResult>(
+                    JsonRpcMethod::IrnFetchMessages,
+                    Some(json!({
+                        "topic": topic
+                    })),
+                )
+                .await?;
             arr.extend(result.messages);
             if !result.has_more {
                 break;
@@ -90,7 +92,7 @@ impl Connection {
         Ok(arr)
     }
 
-    pub fn irn_publish(
+    pub async fn irn_publish(
         &self,
         encrypted_message: EncryptedMessage,
     ) -> Result<Value> {
@@ -98,9 +100,10 @@ impl Connection {
             JsonRpcMethod::IrnPublish,
             Some(serde_json::to_value(encrypted_message)?),
         )
+        .await
     }
 
-    pub fn ping(&self) {
+    pub async fn ping(&self) {
         self.request::<Value>(
             JsonRpcMethod::IrnPublish,
         Some(json!({
@@ -110,10 +113,10 @@ impl Connection {
                     "prompt":false,
                     "tag":1109
                 }))
-        ).unwrap();
+        ).await.unwrap();
     }
 
-    fn request<ResultType>(
+    async fn request<ResultType>(
         &self,
         method: JsonRpcMethod,
         params: Option<Value>,
@@ -129,19 +132,16 @@ impl Connection {
         };
         debug!("request -> {request}");
         let client = Client::new();
-        let rt = Runtime::new().expect("runtime failed");
-        let response = rt.block_on(
-            rt.block_on(
-                client
-                    .post(&self.rpc)
-                    .query(&[("projectId", &self.project_id)])
-                    .bearer_auth(&self.jwt)
-                    .json(&request)
-                    .send()
-                    .into_future(),
-            )?
-            .text(),
-        )?;
+        let response = client
+            .post(&self.rpc)
+            .query(&[("projectId", &self.project_id)])
+            .bearer_auth(&self.jwt)
+            .json(&request)
+            .send()
+            .into_future()
+            .await?
+            .text()
+            .await?;
         debug!("response -> {response}");
         let response =
             serde_json::from_str::<JsonRpcResponse>(response.as_str())?;
@@ -162,9 +162,9 @@ impl Connection {
 mod tests {
     use super::*;
 
-    #[test]
+    #[tokio::test]
     #[ignore]
-    fn test_ping() {
+    async fn test_ping() {
         let conn = Connection::new(
             "https://relay.walletconnect.org/rpc",
             "https://relay.walletconnect.org",
@@ -177,6 +177,6 @@ mod tests {
                 icons: vec![],
             },
         );
-        conn.ping();
+        conn.ping().await;
     }
 }
