@@ -38,6 +38,7 @@ pub const TYPE_1: u8 = 1;
 pub const TYPE_2: u8 = 2;
 
 impl<T: Serialize + DeserializeOwned> Message<T> {
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/7bcb116d17a76a9b61cd5b90ebd2087411f48f53/packages/utils/src/crypto.ts#L86
     pub fn encrypt(
         &self,
         sym_key: [u8; 32],
@@ -99,6 +100,7 @@ impl<T: Serialize + DeserializeOwned> Message<T> {
 }
 
 impl Message {
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/7bcb116d17a76a9b61cd5b90ebd2087411f48f53/packages/utils/src/crypto.ts#L105
     pub fn decrypt(
         cipher_text: &str,
         sym_key: [u8; 32],
@@ -215,6 +217,7 @@ pub enum EncodingType {
 }
 
 impl EncryptedEnvelope {
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/b39a5d4e62f5517ef47a70b5b93f27585b7132e8/packages/core/src/controllers/crypto.ts#L111
     pub fn serialize(&self, encoding: EncodingType) -> String {
         let mut bytes = vec![self.type_byte];
 
@@ -244,6 +247,7 @@ impl EncryptedEnvelope {
         }
     }
 
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/b39a5d4e62f5517ef47a70b5b93f27585b7132e8/packages/core/src/controllers/crypto.ts#L131
     pub fn deserialize(encoded: &str, encoding: EncodingType) -> Self {
         let bytes = match encoding {
             EncodingType::Base64 => {

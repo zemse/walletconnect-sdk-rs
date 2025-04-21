@@ -22,6 +22,7 @@ impl WalletKit {
         encode_iss(&key_pair.public_key)
     }
 
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/b39a5d4e62f5517ef47a70b5b93f27585b7132e8/packages/core/src/controllers/crypto.ts#L73
     pub fn sign_jwt(&self, aud: &str) -> String {
         let keypair = Keypair::from_seed(self.client_seed);
 

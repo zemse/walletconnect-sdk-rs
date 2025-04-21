@@ -9,6 +9,7 @@ use crate::utils::str_timestamp;
 use std::fmt::{Display, Write};
 use std::str::FromStr;
 
+// https://specs.walletconnect.com/2.0/specs/clients/core/identity/identity-keys#cacao-format
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Cacao {
     #[serde(rename = "h")]
@@ -20,6 +21,7 @@ pub struct Cacao {
 }
 
 impl Cacao {
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/b39a5d4e62f5517ef47a70b5b93f27585b7132e8/packages/utils/src/cacao.ts#L97
     pub fn from_auth_request(
         auth_request: &AuthPayload,
         account_address: Address,
@@ -51,6 +53,7 @@ impl Cacao {
         })
     }
 
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/b39a5d4e62f5517ef47a70b5b93f27585b7132e8/packages/utils/src/cacao.ts#L33
     pub fn verify(&self) -> Result<()> {
         let message = self.payload.caip122_message()?;
         if let Some(signature) = &self.signature {
@@ -129,6 +132,7 @@ impl CacaoSignature {
 }
 
 impl CacaoPayload {
+    // https://github.com/WalletConnect/walletconnect-monorepo/blob/b39a5d4e62f5517ef47a70b5b93f27585b7132e8/packages/utils/src/cacao.ts#L49
     pub fn caip122_message(&self) -> Result<String> {
         let chain_name = "Ethereum";
 

@@ -51,7 +51,6 @@ pub fn parse_uri(mut input: String) -> Result<UriParameters> {
         }
     }
 
-    // Strip schema prefixes
     if input.contains("wc://") {
         input = input.replacen("wc://", "", 1);
     } else if input.contains("wc:") {
@@ -144,10 +143,8 @@ pub fn encode_iss(public_key: &[u8; 32]) -> String {
     let encoded =
         bs58::encode([header, public_key.to_vec()].concat()).into_string();
 
-    // 3. Prepend the base prefix ("z")
     let multicodec = format!("{}{}", MULTICODEC_ED25519_BASE, encoded);
 
-    // 4. Construct the final DID string: "did:key:z..."
     [DID_PREFIX, DID_METHOD, &multicodec].join(DID_DELIMITER)
 }
 

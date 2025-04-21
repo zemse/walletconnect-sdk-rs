@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::utils::{encode_iss, random_bytes32};
 
+// Only used for JWT signing, not used for encryption
 #[derive(Debug, Clone)]
 pub struct Keypair {
     pub seed: [u8; 32],
@@ -85,14 +86,12 @@ pub struct IridiumJWTSigned<'a> {
     pub signature: String,
 }
 
-/// Converts a struct to base64url-encoded JSON
 fn encode_json<T: ?Sized + Serialize>(val: &T) -> String {
     Base64UrlUnpadded::encode_string(
         serde_json::to_string(val).unwrap().as_bytes(),
     )
 }
 
-/// Concatenates base64url(header) + "." + base64url(payload) and returns data + string
 fn encode_data(
     header: &IridiumJWTHeader,
     payload: &IridiumJWTPayload,
@@ -110,7 +109,6 @@ pub fn sign_jwt(
     keypair: &Keypair,
     iat_opt: Option<u64>,
 ) -> String {
-    // Get current timestamp if not provided
     let iat = iat_opt.unwrap_or_else(|| {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)

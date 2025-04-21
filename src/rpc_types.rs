@@ -42,13 +42,12 @@ impl PartialEq for Id {
     }
 }
 
-/// A basic JSON-RPC 2.0 request.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct JsonRpcRequest<ParamType = Value> {
     pub jsonrpc: String,
     pub method: JsonRpcMethod,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub params: Option<ParamType>, // Could be array or object
+    pub params: Option<ParamType>,
     pub id: Id,
 }
 
@@ -58,7 +57,6 @@ impl Display for JsonRpcRequest {
     }
 }
 
-/// A basic JSON-RPC 2.0 response with either a result or an error.
 #[derive(Serialize, Deserialize, Debug)]
 pub struct JsonRpcResponse<ResultType = Value> {
     #[allow(dead_code)]
@@ -72,7 +70,6 @@ pub struct JsonRpcResponse<ResultType = Value> {
     pub id: Option<Id>,
 }
 
-/// A JSON-RPC error object (code, message, and optional data).
 #[derive(Serialize, Deserialize, Debug)]
 #[allow(dead_code)]
 pub struct JsonRpcError {
