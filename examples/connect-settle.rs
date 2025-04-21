@@ -1,4 +1,6 @@
-use walletconnect_sdk::{connection::Connection, message::Metadata};
+use walletconnect_sdk::{
+    connection::Connection, message::Metadata, paring::Topic,
+};
 
 /// This example shows how to use connect to a dApp using our wallet and use the
 /// wc_sessionSettle method. Does not require private key.
@@ -28,7 +30,7 @@ async fn main() {
 
     // WalletConnect URI - you can get it by visiting any dApp and clicking on
     // "Connect Wallet" and select WalletConnect
-    let uri_from_dapp = "wc:ef2c61c8b0afae3f4d1b03afde31d5067f4483eb0c99267e5405576722bef16d@2?relay-protocol=irn&symKey=b27591b7d74c383292a5132dc056eb417125b4324f8b9bf1d077773c3aaf6917&expiryTimestamp=1744374176&methods=wc_sessionAuthenticate";
+    let uri_from_dapp = "wc:2e3f4627ccd6e8f7281f638afb50c9b32ffbeca811a619463a7870b29924dcd3@2?expiryTimestamp=1745231971&relay-protocol=irn&symKey=ef4a3a9c6742d86f65f760d5fe6572fbec3938c354b7bb428b614793a2432fe2";
 
     let mut pairing = conn
         .init_pairing(uri_from_dapp)
@@ -43,4 +45,11 @@ async fn main() {
         )
         .await
         .expect("approve failed");
+
+    loop {
+        let result =
+            pairing.watch_messages(Topic::Derived, None).await.unwrap();
+
+        println!("result: {result:?}");
+    }
 }

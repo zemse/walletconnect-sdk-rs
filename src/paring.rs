@@ -15,7 +15,8 @@ use alloy::primitives::Address;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_json::Value;
-use std::str;
+use std::time::Duration;
+use std::{str, thread};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Topic {
@@ -220,11 +221,25 @@ impl<'a> Pairing<'a> {
         Ok(())
     }
 
+    pub async fn watch_messages(
+        &self,
+        topic: Topic,
+        dur: Option<Duration>,
+    ) -> Result<Vec<Message>> {
+        loop {
+            let result = self.fetch_messages(topic).await?;
+            if !result.is_empty() {
+                return Ok(result);
+            }
+            thread::sleep(dur.unwrap_or(Duration::from_secs(1)));
+        }
+    }
+
     fn new_message(&self, content: MessageParam) -> Message {
         Message {
             jsonrpc: "2.0".to_string(),
-            method: content.method(),
-            params: content.params(),
+            method: Some(content.method()),
+            params: Some(content.params()),
             result: None,
             id: self.connection.get_id(),
         }

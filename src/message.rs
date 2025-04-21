@@ -162,6 +162,9 @@ pub enum MessageMethod {
 
     #[serde(rename = "wc_sessionSettle")]
     SessionSettle,
+
+    #[serde(rename = "wc_sessionRequest")]
+    SessionRequest,
 }
 
 #[derive(Clone, Debug)]
@@ -169,34 +172,33 @@ pub enum MessageParam {
     SessionPropose(SessionProposeParams),
     SessionAuthenticate(SessionAuthenticateParams),
     SessionSettle(SessionSettleParams),
+    SessionRequest(Value),
 }
 
 impl MessageParam {
-    pub fn method(&self) -> Option<MessageMethod> {
+    pub fn method(&self) -> MessageMethod {
         match self {
-            MessageParam::SessionPropose(_) => {
-                Some(MessageMethod::SessionPropose)
-            }
-            MessageParam::SessionSettle(_) => {
-                Some(MessageMethod::SessionSettle)
-            }
+            MessageParam::SessionPropose(_) => MessageMethod::SessionPropose,
+            MessageParam::SessionSettle(_) => MessageMethod::SessionSettle,
             MessageParam::SessionAuthenticate(_) => {
-                Some(MessageMethod::SessionAuthenticate)
+                MessageMethod::SessionAuthenticate
             }
+            MessageParam::SessionRequest(_) => MessageMethod::SessionRequest,
         }
     }
 
-    pub fn params(&self) -> Option<Value> {
+    pub fn params(&self) -> Value {
         match self {
             MessageParam::SessionPropose(params) => {
-                Some(serde_json::to_value(params).unwrap())
+                serde_json::to_value(params).unwrap()
             }
             MessageParam::SessionSettle(params) => {
-                Some(serde_json::to_value(params).unwrap())
+                serde_json::to_value(params).unwrap()
             }
             MessageParam::SessionAuthenticate(params) => {
-                Some(serde_json::to_value(params).unwrap())
+                serde_json::to_value(params).unwrap()
             }
+            MessageParam::SessionRequest(params) => params.clone(),
         }
     }
 }
@@ -393,6 +395,23 @@ pub struct SessionSettleParams {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionSettleProperties {
     pub capabilities: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionRequestParams {
+    #[serde(rename = "sessionId")]
+    pub session_id: Option<String>,
+    pub scope: Option<String>,
+    pub request: SessionRequestObject,
+    #[serde(rename = "chainId")]
+    pub chain_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionRequestObject {
+    pub method: String,
+    pub params: Value,
+    pub expiry: Option<u64>,
 }
 
 #[cfg(test)]
@@ -860,6 +879,22 @@ mod tests {
             response_topic,
             sym_key,
             new_topic,
+        );
+    }
+
+    #[test]
+    fn decode_session_request_eth_transaction() {
+        let request = json!({"id":"1745231798527575","jsonrpc":"2.0","method":"wc_sessionRequest","params":{"request":{"method":"eth_sendTransaction","params":[{"chainId":"0x1","gas":"0x3635b","maxFeePerGas":"0x9389ef24","maxPriorityFeePerGas":"0x77359400","value":"0xde0b6b3a7640000","from":"0x0000000000000000000000000000000000000123","to":"0x66a9893cc07d91d95644aedd05d03f95e1dba8af","data":"0x3593564c000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000680626bd00000000000000000000000000000000000000000000000000000000000000040b000604000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000de0b6b3a7640000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002bc02aaa39b223fe8d0a0e5c4f27ead9083c756cc20001f4dac17f958d2ee523a2206206994597c13d831ec70000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000060000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000fee13a103a10d593b9ae06b3e05f2e7e1c00000000000000000000000000000000000000000000000000000000000000190000000000000000000000000000000000000000000000000000000000000060000000000000000000000000dac17f958d2ee523a2206206994597c13d831ec7000000000000000000000000000000000000000000000000000000000000012300000000000000000000000000000000000000000000000000000000607363570c"}],"expiryTimestamp":1745232098},"chainId":"eip155:1"}});
+
+        let request =
+            serde_json::from_value::<Message<SessionRequestParams>>(request)
+                .unwrap();
+
+        assert_eq!(request.method, Some(MessageMethod::SessionRequest));
+        assert_eq!(request.jsonrpc, "2.0");
+        assert_eq!(
+            request.params.unwrap().request.method,
+            "eth_sendTransaction"
         );
     }
 }
