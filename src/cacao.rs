@@ -64,8 +64,7 @@ impl Cacao {
                 Ok(())
             } else {
                 Err(Error::InternalError(format!(
-                    "Signature does not match the address: {}",
-                    address
+                    "Signature does not match the address: {address}"
                 )))
             }
         } else {

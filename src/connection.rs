@@ -153,7 +153,7 @@ impl Connection {
         } else if let Some(error) = response.error {
             Err(error.into())
         } else {
-            Err(format!("Unexpected response: {:?}", response).into())
+            Err(format!("Unexpected response: {response:?}").into())
         }
     }
 }

@@ -42,12 +42,11 @@ impl From<String> for UriParameters {
 
 pub fn parse_uri(mut input: String) -> Result<UriParameters> {
     if !input.contains("wc:") {
-        if let Ok(decoded_bytes) = Base64UrlUnpadded::decode_vec(&input) {
-            if let Ok(decoded_str) = String::from_utf8(decoded_bytes) {
-                if decoded_str.contains("wc:") {
-                    input = decoded_str;
-                }
-            }
+        let decoded_str = Base64UrlUnpadded::decode_vec(&input)
+            .ok()
+            .and_then(|bytes| String::from_utf8(bytes).ok());
+        if let Some(decoded) = decoded_str.filter(|s| s.contains("wc:")) {
+            input = decoded;
         }
     }
 
@@ -143,7 +142,7 @@ pub fn encode_iss(public_key: &[u8; 32]) -> String {
     let encoded =
         bs58::encode([header, public_key.to_vec()].concat()).into_string();
 
-    let multicodec = format!("{}{}", MULTICODEC_ED25519_BASE, encoded);
+    let multicodec = format!("{MULTICODEC_ED25519_BASE}{encoded}");
 
     [DID_PREFIX, DID_METHOD, &multicodec].join(DID_DELIMITER)
 }
