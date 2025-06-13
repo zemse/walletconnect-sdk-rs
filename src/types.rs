@@ -1,9 +1,12 @@
 use std::collections::HashMap;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 
 use crate::cacao::Cacao;
 use crate::error::Result;
-use serde::{Deserialize, Serialize};
+use alloy::rpc::types::TransactionRequest;
+use serde::de::{MapAccess, Visitor};
+use serde::ser::SerializeSeq;
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Number;
 use serde_json::Value;
 
@@ -239,18 +242,137 @@ pub struct SessionSettleProperties {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SessionRequestParams {
     #[serde(rename = "sessionId")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub session_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
     pub request: SessionRequestObject,
     #[serde(rename = "chainId")]
     pub chain_id: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SessionRequestObject {
-    pub method: String,
-    pub params: Value,
-    pub expiry: Option<u64>,
+    pub method: SessionRequestMethod,
+    pub params: SessionRequestData,
+    #[serde(rename = "expiryTimestamp")]
+    pub expiry_timestamp: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum SessionRequestMethod {
+    #[serde(rename = "personal_sign")]
+    PersonalSign,
+    #[serde(rename = "eth_sendTransaction")]
+    EthSendTransaction,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum SessionRequestData {
+    EthSendTransaction([Box<TransactionRequest>; 1]),
+    PersonalSign([String; 2]),
+}
+
+impl Serialize for SessionRequestData {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        match self {
+            SessionRequestData::EthSendTransaction([tx]) => {
+                let mut seq = serializer.serialize_seq(Some(1))?;
+                seq.serialize_element(tx)?;
+                seq.end()
+            }
+            SessionRequestData::PersonalSign(arr) => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element(&arr[0])?;
+                seq.serialize_element(&arr[1])?;
+                seq.end()
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for SessionRequestObject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(field_identifier, rename_all = "camelCase")]
+        enum Field {
+            Method,
+            Params,
+            ExpiryTimestamp,
+        }
+
+        struct SessionRequestVisitor;
+
+        impl<'de> Visitor<'de> for SessionRequestVisitor {
+            type Value = SessionRequestObject;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("SessionRequestObject with method, params, and expiryTimestamp")
+            }
+
+            fn visit_map<V>(
+                self,
+                mut map: V,
+            ) -> Result<SessionRequestObject, V::Error>
+            where
+                V: MapAccess<'de>,
+            {
+                use serde_json::Value;
+
+                let mut method: Option<SessionRequestMethod> = None;
+                let mut raw_params: Option<Value> = None;
+                let mut expiry: Option<u64> = None;
+
+                while let Some(key) = map.next_key()? {
+                    match key {
+                        Field::Method => method = Some(map.next_value()?),
+                        Field::Params => raw_params = Some(map.next_value()?),
+                        Field::ExpiryTimestamp => {
+                            expiry = Some(map.next_value()?)
+                        }
+                    }
+                }
+
+                let method = method
+                    .ok_or_else(|| serde::de::Error::missing_field("method"))?;
+                let raw_params = raw_params
+                    .ok_or_else(|| serde::de::Error::missing_field("params"))?;
+                let expiry = expiry.ok_or_else(|| {
+                    serde::de::Error::missing_field("expiryTimestamp")
+                })?;
+
+                // Deserialize the params based on the method
+                let params = match method {
+                    SessionRequestMethod::EthSendTransaction => {
+                        let arr: [Box<TransactionRequest>; 1] =
+                            serde_json::from_value(raw_params)
+                                .map_err(serde::de::Error::custom)?;
+                        SessionRequestData::EthSendTransaction(arr)
+                    }
+                    SessionRequestMethod::PersonalSign => {
+                        let arr: [String; 2] =
+                            serde_json::from_value(raw_params)
+                                .map_err(serde::de::Error::custom)?;
+                        SessionRequestData::PersonalSign(arr)
+                    }
+                };
+
+                Ok(SessionRequestObject {
+                    method,
+                    params,
+                    expiry_timestamp: expiry,
+                })
+            }
+        }
+
+        deserializer.deserialize_map(SessionRequestVisitor)
+    }
 }
 
 #[cfg(test)]
