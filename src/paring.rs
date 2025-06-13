@@ -1,12 +1,12 @@
 use crate::cacao::Cacao;
 use crate::connection::Connection;
 use crate::error::{Error, Result};
-use crate::message::{
-    Message, MessageMethod, MessageParam, Namespace, Participant, Relay,
+use crate::message::{Message, WcMessage, WcMethod};
+use crate::types::{
+    EncryptedMessage, IrnTag, Namespace, Participant, Relay,
     SessionAuthenticateParams, SessionAuthenticateResponse,
     SessionProposeParams, SessionProposeResponse, SessionSettleParams,
 };
-use crate::rpc_types::{EncryptedMessage, IrnTag};
 use crate::utils::{
     DAYS, UriParameters, derive_sym_key, random_bytes32, sha256, unix_timestamp,
 };
@@ -77,7 +77,7 @@ impl<'a> Pairing<'a> {
         } else if messages.len() == 2 {
             // Sometimes dApps send us both SessionPropose and SessionAuthenticate messages
             let (proposal_request, authenticate_request) =
-                if messages[0].is(MessageMethod::SessionPropose) {
+                if messages[0].is(WcMethod::SessionPropose) {
                     (&messages[0], &messages[1])
                 } else {
                     (&messages[1], &messages[0])
@@ -139,8 +139,8 @@ impl<'a> Pairing<'a> {
 
         self.subscribe(Topic::Derived).await?;
 
-        let session_settle = self.new_message(MessageParam::SessionSettle(
-            SessionSettleParams {
+        let session_settle =
+            self.new_message(WcMessage::SessionSettle(SessionSettleParams {
                 controller: self.participant(),
                 expiry: unix_timestamp()? + 10 * DAYS,
                 namespaces: [(
@@ -169,8 +169,7 @@ impl<'a> Pairing<'a> {
                     protocol: "irn".to_string(),
                 },
                 session_properties: None,
-            },
-        ));
+            }));
 
         self.send_message(
             Topic::Derived,
@@ -235,7 +234,7 @@ impl<'a> Pairing<'a> {
         }
     }
 
-    fn new_message(&self, content: MessageParam) -> Message {
+    fn new_message(&self, content: WcMessage) -> Message {
         Message {
             jsonrpc: "2.0".to_string(),
             method: Some(content.method()),
@@ -323,7 +322,7 @@ impl<'a> Pairing<'a> {
     pub fn participant(&self) -> Participant {
         Participant {
             public_key: self.public_key(),
-            metadata: self.connection.metadata.clone(),
+            metadata: self.connection.metadata().clone(),
         }
     }
 

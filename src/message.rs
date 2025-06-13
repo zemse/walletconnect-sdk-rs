@@ -1,11 +1,12 @@
+use crate::error::Result;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
 
-use crate::error::Result;
-
-use crate::{cacao::Cacao, rpc_types::Id};
+use crate::types::Id;
+use crate::types::{
+    SessionAuthenticateParams, SessionProposeParams, SessionSettleParams,
+};
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
 use aes_gcm::{Key, Nonce};
 use alloy::hex;
@@ -14,11 +15,60 @@ use chacha20poly1305::ChaCha20Poly1305;
 use rand::RngCore;
 use serde::de::DeserializeOwned;
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum WcMethod {
+    #[serde(rename = "wc_sessionPropose")]
+    SessionPropose,
+
+    #[serde(rename = "wc_sessionAuthenticate")]
+    SessionAuthenticate,
+
+    #[serde(rename = "wc_sessionSettle")]
+    SessionSettle,
+
+    #[serde(rename = "wc_sessionRequest")]
+    SessionRequest,
+}
+
+#[derive(Clone, Debug)]
+pub enum WcMessage {
+    SessionPropose(SessionProposeParams),
+    SessionAuthenticate(SessionAuthenticateParams),
+    SessionSettle(SessionSettleParams),
+    SessionRequest(Value),
+}
+
+impl WcMessage {
+    pub fn method(&self) -> WcMethod {
+        match self {
+            Self::SessionPropose(_) => WcMethod::SessionPropose,
+            Self::SessionSettle(_) => WcMethod::SessionSettle,
+            Self::SessionAuthenticate(_) => WcMethod::SessionAuthenticate,
+            Self::SessionRequest(_) => WcMethod::SessionRequest,
+        }
+    }
+
+    pub fn params(&self) -> Value {
+        match self {
+            Self::SessionPropose(params) => {
+                serde_json::to_value(params).unwrap()
+            }
+            Self::SessionSettle(params) => {
+                serde_json::to_value(params).unwrap()
+            }
+            Self::SessionAuthenticate(params) => {
+                serde_json::to_value(params).unwrap()
+            }
+            Self::SessionRequest(params) => params.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Message<T = Value> {
     pub jsonrpc: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub method: Option<MessageMethod>,
+    pub method: Option<WcMethod>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub params: Option<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,6 +88,25 @@ pub const TYPE_1: u8 = 1;
 pub const TYPE_2: u8 = 2;
 
 impl<T: Serialize + DeserializeOwned> Message<T> {
+    pub fn create_success_response<R>(&self, result_data: R) -> Message<R> {
+        Message {
+            jsonrpc: self.jsonrpc.clone(),
+            method: None,
+            params: None,
+            result: Some(result_data),
+            id: self.id.clone(),
+        }
+    }
+
+    pub fn create_error_response(
+        &self,
+        _code: i64,
+        _message: String,
+        _data: Option<Value>,
+    ) -> Message {
+        todo!()
+    }
+
     // https://github.com/WalletConnect/walletconnect-monorepo/blob/7bcb116d17a76a9b61cd5b90ebd2087411f48f53/packages/utils/src/crypto.ts#L86
     pub fn encrypt(
         &self,
@@ -75,26 +144,7 @@ impl<T: Serialize + DeserializeOwned> Message<T> {
         .serialize(encoding.clone().unwrap_or(EncodingType::Base64)))
     }
 
-    pub fn create_success_response<R>(&self, result_data: R) -> Message<R> {
-        Message {
-            jsonrpc: self.jsonrpc.clone(),
-            method: None,
-            params: None,
-            result: Some(result_data),
-            id: self.id.clone(),
-        }
-    }
-
-    pub fn create_error_response(
-        &self,
-        _code: i64,
-        _message: String,
-        _data: Option<Value>,
-    ) -> Message {
-        todo!()
-    }
-
-    pub fn is(&self, method: MessageMethod) -> bool {
+    pub fn is(&self, method: WcMethod) -> bool {
         self.method == Some(method)
     }
 }
@@ -149,57 +199,6 @@ impl Message {
 
     pub fn into_value(self) -> Result<Value> {
         Ok(serde_json::to_value(self)?)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub enum MessageMethod {
-    #[serde(rename = "wc_sessionPropose")]
-    SessionPropose,
-
-    #[serde(rename = "wc_sessionAuthenticate")]
-    SessionAuthenticate,
-
-    #[serde(rename = "wc_sessionSettle")]
-    SessionSettle,
-
-    #[serde(rename = "wc_sessionRequest")]
-    SessionRequest,
-}
-
-#[derive(Clone, Debug)]
-pub enum MessageParam {
-    SessionPropose(SessionProposeParams),
-    SessionAuthenticate(SessionAuthenticateParams),
-    SessionSettle(SessionSettleParams),
-    SessionRequest(Value),
-}
-
-impl MessageParam {
-    pub fn method(&self) -> MessageMethod {
-        match self {
-            MessageParam::SessionPropose(_) => MessageMethod::SessionPropose,
-            MessageParam::SessionSettle(_) => MessageMethod::SessionSettle,
-            MessageParam::SessionAuthenticate(_) => {
-                MessageMethod::SessionAuthenticate
-            }
-            MessageParam::SessionRequest(_) => MessageMethod::SessionRequest,
-        }
-    }
-
-    pub fn params(&self) -> Value {
-        match self {
-            MessageParam::SessionPropose(params) => {
-                serde_json::to_value(params).unwrap()
-            }
-            MessageParam::SessionSettle(params) => {
-                serde_json::to_value(params).unwrap()
-            }
-            MessageParam::SessionAuthenticate(params) => {
-                serde_json::to_value(params).unwrap()
-            }
-            MessageParam::SessionRequest(params) => params.clone(),
-        }
     }
 }
 
@@ -303,124 +302,13 @@ impl EncryptedEnvelope {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionProposeParams {
-    #[serde(rename = "requiredNamespaces")]
-    pub required_namespaces: HashMap<String, Namespace>,
-    #[serde(rename = "optionalNamespaces")]
-    pub optional_namespaces: HashMap<String, Namespace>,
-    pub relays: Vec<Relay>,
-    #[serde(rename = "pairingTopic")]
-    pub pairing_topic: String,
-    pub proposer: Participant,
-    #[serde(rename = "expiryTimestamp")]
-    pub expiry_timestamp: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionProposeResponse {
-    pub relay: Relay,
-    #[serde(rename = "responderPublicKey")]
-    pub responder_public_key: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Namespace {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub accounts: Option<Vec<String>>,
-    pub chains: Vec<String>,
-    pub events: Vec<String>,
-    pub methods: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Relay {
-    pub protocol: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionAuthenticateParams {
-    #[serde(rename = "authPayload")]
-    pub auth_payload: AuthPayload,
-    pub requester: Participant,
-    #[serde(rename = "expiryTimestamp")]
-    pub expiry_timestamp: u64,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct AuthPayload {
-    #[serde(rename = "type")]
-    pub payload_type: String,
-    pub chains: Vec<String>,
-    pub statement: String,
-    pub aud: String,
-    pub domain: String,
-    pub version: String,
-    pub nonce: String,
-    pub iat: String,
-    pub resources: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Participant {
-    #[serde(rename = "publicKey")]
-    pub public_key: String,
-    pub metadata: Metadata,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Metadata {
-    pub name: String,
-    pub description: String,
-    pub url: String,
-    pub icons: Vec<String>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct SessionAuthenticateResponse {
-    pub cacaos: Vec<Cacao>,
-    pub responder: Participant,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionSettleParams {
-    pub controller: Participant,
-    pub expiry: u64,
-    pub namespaces: HashMap<String, Namespace>,
-    pub relay: Relay,
-    #[serde(rename = "sessionProperties")]
-    pub session_properties: Option<SessionSettleProperties>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionSettleProperties {
-    pub capabilities: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionRequestParams {
-    #[serde(rename = "sessionId")]
-    pub session_id: Option<String>,
-    pub scope: Option<String>,
-    pub request: SessionRequestObject,
-    #[serde(rename = "chainId")]
-    pub chain_id: String,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SessionRequestObject {
-    pub method: String,
-    pub params: Value,
-    pub expiry: Option<u64>,
-}
-
 #[cfg(test)]
 mod tests {
     use crate::message::TYPE_1;
-    use crate::rpc_types::Id;
+    use crate::types::{SessionProposeResponse, SessionRequestParams};
     use crate::{
-        message::SessionAuthenticateResponse,
         relay_auth::Keypair,
+        types::{Id, SessionAuthenticateResponse},
         utils::{derive_sym_key, parse_uri, sha256},
     };
     use alloy::signers::k256::sha2::{Digest, Sha256};
@@ -495,7 +383,7 @@ mod tests {
             message1,
             Message {
                 jsonrpc: "2.0".to_string(),
-                method: Some(MessageMethod::SessionPropose),
+                method: Some(WcMethod::SessionPropose),
                 params: Some(json!({
                     "expiryTimestamp": 1743768178,
                     "id": 1743767878967710_u64,
@@ -554,7 +442,7 @@ mod tests {
             message2,
             Message {
                 jsonrpc: "2.0".to_string(),
-                method: Some(MessageMethod::SessionAuthenticate),
+                method: Some(WcMethod::SessionAuthenticate),
                 params: Some(json!({
                     "authPayload": {
                         "aud": "https://appkit-lab.reown.com",
@@ -688,7 +576,7 @@ mod tests {
             message1,
             Message {
                 jsonrpc: "2.0".to_string(),
-                method: Some(MessageMethod::SessionPropose),
+                method: Some(WcMethod::SessionPropose),
                 params: Some(json!({
                   "expiryTimestamp": 1744290864,
                   "optionalNamespaces": {
@@ -746,7 +634,7 @@ mod tests {
             message2,
             Message {
                 jsonrpc: "2.0".to_string(),
-                method: Some(MessageMethod::SessionSettle),
+                method: Some(WcMethod::SessionSettle),
                 params: Some(json!({
                   "controller": {
                     "metadata": {
@@ -890,7 +778,7 @@ mod tests {
             serde_json::from_value::<Message<SessionRequestParams>>(request)
                 .unwrap();
 
-        assert_eq!(request.method, Some(MessageMethod::SessionRequest));
+        assert_eq!(request.method, Some(WcMethod::SessionRequest));
         assert_eq!(request.jsonrpc, "2.0");
         assert_eq!(
             request.params.unwrap().request.method,

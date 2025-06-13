@@ -3,7 +3,7 @@ use alloy::signers::Signature;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::error::{Error, Result};
-use crate::message::AuthPayload;
+use crate::types::AuthPayload;
 use crate::utils::str_timestamp;
 
 use std::fmt::{Display, Write};

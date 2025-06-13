@@ -1,5 +1,7 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 
+use crate::cacao::Cacao;
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::Number;
@@ -140,14 +142,125 @@ pub enum JsonRpcMethod {
     IrnFetchMessages,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionProposeParams {
+    #[serde(rename = "requiredNamespaces")]
+    pub required_namespaces: HashMap<String, Namespace>,
+    #[serde(rename = "optionalNamespaces")]
+    pub optional_namespaces: HashMap<String, Namespace>,
+    pub relays: Vec<Relay>,
+    #[serde(rename = "pairingTopic")]
+    pub pairing_topic: String,
+    pub proposer: Participant,
+    #[serde(rename = "expiryTimestamp")]
+    pub expiry_timestamp: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionProposeResponse {
+    pub relay: Relay,
+    #[serde(rename = "responderPublicKey")]
+    pub responder_public_key: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Namespace {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub accounts: Option<Vec<String>>,
+    pub chains: Vec<String>,
+    pub events: Vec<String>,
+    pub methods: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Relay {
+    pub protocol: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionAuthenticateParams {
+    #[serde(rename = "authPayload")]
+    pub auth_payload: AuthPayload,
+    pub requester: Participant,
+    #[serde(rename = "expiryTimestamp")]
+    pub expiry_timestamp: u64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct AuthPayload {
+    #[serde(rename = "type")]
+    pub payload_type: String,
+    pub chains: Vec<String>,
+    pub statement: String,
+    pub aud: String,
+    pub domain: String,
+    pub version: String,
+    pub nonce: String,
+    pub iat: String,
+    pub resources: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Participant {
+    #[serde(rename = "publicKey")]
+    pub public_key: String,
+    pub metadata: Metadata,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Metadata {
+    pub name: String,
+    pub description: String,
+    pub url: String,
+    pub icons: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SessionAuthenticateResponse {
+    pub cacaos: Vec<Cacao>,
+    pub responder: Participant,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionSettleParams {
+    pub controller: Participant,
+    pub expiry: u64,
+    pub namespaces: HashMap<String, Namespace>,
+    pub relay: Relay,
+    #[serde(rename = "sessionProperties")]
+    pub session_properties: Option<SessionSettleProperties>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionSettleProperties {
+    pub capabilities: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionRequestParams {
+    #[serde(rename = "sessionId")]
+    pub session_id: Option<String>,
+    pub scope: Option<String>,
+    pub request: SessionRequestObject,
+    #[serde(rename = "chainId")]
+    pub chain_id: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SessionRequestObject {
+    pub method: String,
+    pub params: Value,
+    pub expiry: Option<u64>,
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
-        message::{
-            Message, MessageMethod, SessionAuthenticateParams,
+        message::{Message, WcMethod},
+        types::{
+            FetchMessageResult, JsonRpcResponse, SessionAuthenticateParams,
             SessionProposeParams,
         },
-        rpc_types::{FetchMessageResult, JsonRpcResponse},
     };
 
     use super::Id;
@@ -171,7 +284,7 @@ mod tests {
         println!("Decoded: {decoded:?}");
 
         assert_eq!(decoded.id.to_u128().unwrap(), 1743510684985756);
-        assert_eq!(decoded.method, Some(MessageMethod::SessionPropose));
+        assert_eq!(decoded.method, Some(WcMethod::SessionPropose));
         assert_eq!(decoded.jsonrpc, "2.0");
         assert!(decoded.params.is_some());
         let params = decoded.params.unwrap();
@@ -196,7 +309,7 @@ mod tests {
         println!("Decoded: {decoded:?}");
 
         assert_eq!(decoded.id.to_u128().unwrap(), 1743510684985985);
-        assert_eq!(decoded.method, Some(MessageMethod::SessionAuthenticate));
+        assert_eq!(decoded.method, Some(WcMethod::SessionAuthenticate));
         assert_eq!(decoded.jsonrpc, "2.0");
         assert!(decoded.params.is_some());
         let params = decoded.params.unwrap();

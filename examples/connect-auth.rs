@@ -2,7 +2,7 @@ use alloy::signers::{
     SignerSync, k256::ecdsa::SigningKey, local::PrivateKeySigner,
 };
 use rand::rngs::OsRng;
-use walletconnect_sdk::{connection::Connection, message::Metadata};
+use walletconnect_sdk::{connection::Connection, types::Metadata};
 
 /// This example shows how to use connect to a dApp using our wallet and use the
 /// wc_sessionAuthenticate method. This requires private key to sign the CACAO.

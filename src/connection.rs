@@ -7,20 +7,19 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
 use crate::error::Result;
-use crate::message::Metadata;
 use crate::paring::Pairing;
-use crate::rpc_types::{
+use crate::relay_auth::RelayAuth;
+use crate::types::{
     EncryptedMessage, FetchMessageResult, Id, JsonRpcMethod, JsonRpcRequest,
-    JsonRpcResponse,
+    JsonRpcResponse, Metadata,
 };
-use crate::wallet_kit::WalletKit;
 
 pub struct Connection {
     rpc: String,
     id: usize,
     jwt: String,
     project_id: String,
-    pub metadata: Metadata,
+    metadata: Metadata,
 }
 
 impl Connection {
@@ -31,9 +30,9 @@ impl Connection {
         client_seed: [u8; 32],
         metadata: Metadata,
     ) -> Self {
-        let wallet_kit = WalletKit::new(client_seed);
+        let relay_auth = RelayAuth::new(client_seed);
         let initial: u16 = rand::thread_rng().r#gen();
-        let jwt = wallet_kit.sign_jwt(jwt_rpc);
+        let jwt = relay_auth.sign_jwt(jwt_rpc);
         Self {
             rpc: rpc.to_string(),
             id: initial as usize,
@@ -41,6 +40,10 @@ impl Connection {
             project_id: project_id.to_string(),
             metadata,
         }
+    }
+
+    pub fn metadata(&self) -> &Metadata {
+        &self.metadata
     }
 
     pub(crate) fn get_id(&self) -> Id {

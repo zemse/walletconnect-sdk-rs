@@ -1,4 +1,4 @@
-use crate::rpc_types;
+use crate::types::JsonRpcError;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;
 
@@ -10,7 +10,7 @@ pub enum Error {
     PathEndNotFound,
     InvalidIrnTag(u16),
     ParseInt(std::num::ParseIntError),
-    JsonRpc(rpc_types::JsonRpcError),
+    JsonRpc(JsonRpcError),
     Anyhow(anyhow::Error),
     Reqwest(reqwest::Error),
     InternalError(String),
@@ -42,8 +42,8 @@ impl From<std::num::ParseIntError> for Error {
     }
 }
 
-impl From<rpc_types::JsonRpcError> for Error {
-    fn from(e: rpc_types::JsonRpcError) -> Self {
+impl From<JsonRpcError> for Error {
+    fn from(e: JsonRpcError) -> Self {
         Error::JsonRpc(e)
     }
 }

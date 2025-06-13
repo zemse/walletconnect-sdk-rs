@@ -5,6 +5,5 @@ pub mod error;
 pub mod message;
 pub mod paring;
 pub mod relay_auth;
-pub mod rpc_types;
+pub mod types;
 pub mod utils;
-pub mod wallet_kit;

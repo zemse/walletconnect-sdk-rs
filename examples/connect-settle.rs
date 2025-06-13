@@ -1,5 +1,5 @@
 use walletconnect_sdk::{
-    connection::Connection, message::Metadata, paring::Topic,
+    connection::Connection, paring::Topic, types::Metadata,
 };
 
 /// This example shows how to use connect to a dApp using our wallet and use the
@@ -30,7 +30,7 @@ async fn main() {
 
     // WalletConnect URI - you can get it by visiting any dApp and clicking on
     // "Connect Wallet" and select WalletConnect
-    let uri_from_dapp = "wc:2e3f4627ccd6e8f7281f638afb50c9b32ffbeca811a619463a7870b29924dcd3@2?expiryTimestamp=1745231971&relay-protocol=irn&symKey=ef4a3a9c6742d86f65f760d5fe6572fbec3938c354b7bb428b614793a2432fe2";
+    let uri_from_dapp = "wc:e4b9eb7a1372bf88abc46c37acac3687301afdfd0d2a4c2355945d66a1164464@2?relay-protocol=irn&symKey=d7430284e1b70853829a010518a088cde0e163bcad5f24425e3b17578b2b402d&expiryTimestamp=1749783095&methods=wc_sessionAuthenticate";
 
     let mut pairing = conn
         .init_pairing(uri_from_dapp)
