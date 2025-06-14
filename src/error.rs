@@ -8,13 +8,19 @@ pub enum Error {
     InvalidUri,
     SymKeyNotMentioned,
     PathEndNotFound,
+    EmptyParams,
+    MethodIsNone(String),
     InvalidIrnTag(u16),
     ParseInt(std::num::ParseIntError),
     JsonRpc(JsonRpcError),
     Anyhow(anyhow::Error),
     Reqwest(reqwest::Error),
     InternalError(String),
+    InternalError2(&'static str),
+    InternalError3(&'static str, String),
+    SerdePlainError(serde_plain::Error),
     SerdeJsonError(serde_json::Error),
+    // SerdePathToError(Box<serde_path_to_error::Error<serde_json::Error>>),
     FromHexError(alloy::hex::FromHexError),
     AesError(aes_gcm::Error),
     FromUtf8Error(std::string::FromUtf8Error),
@@ -24,9 +30,9 @@ pub enum Error {
     SystemTimeError(std::time::SystemTimeError),
 }
 
-impl From<&str> for Error {
-    fn from(e: &str) -> Self {
-        Error::InternalError(e.to_string())
+impl From<&'static str> for Error {
+    fn from(e: &'static str) -> Self {
+        Error::InternalError2(e)
     }
 }
 
@@ -57,6 +63,12 @@ impl From<anyhow::Error> for Error {
 impl From<reqwest::Error> for Error {
     fn from(e: reqwest::Error) -> Self {
         Error::Reqwest(e)
+    }
+}
+
+impl From<serde_plain::Error> for Error {
+    fn from(e: serde_plain::Error) -> Self {
+        Error::SerdePlainError(e)
     }
 }
 

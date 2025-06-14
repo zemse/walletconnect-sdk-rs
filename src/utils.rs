@@ -1,11 +1,12 @@
-use alloy::{hex, signers::k256::sha2::Sha256};
-use base64ct::{Base64UrlUnpadded, Encoding};
-use hkdf::{Hkdf, hmac::digest::Digest};
-use rand::{RngCore, rngs::OsRng};
 use std::{
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},
 };
+
+use alloy::{hex, signers::k256::sha2::Sha256};
+use base64ct::{Base64UrlUnpadded, Encoding};
+use hkdf::{Hkdf, hmac::digest::Digest};
+use rand::{RngCore, rngs::OsRng};
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use url::form_urlencoded;
 
@@ -179,6 +180,11 @@ pub fn str_timestamp() -> Result<String> {
     let now = OffsetDateTime::now_utc();
     Ok(now.format(&Rfc3339)?)
 }
+
+// pub fn deserialize_str<T: DeserializeOwned>(s: &str) -> crate::Result<T> {
+//     serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(s))
+//         .map_err(|e| crate::Error::SerdePathToError(Box::new(e)))
+// }
 
 #[cfg(test)]
 mod tests {

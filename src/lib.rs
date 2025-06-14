@@ -7,3 +7,4 @@ pub mod paring;
 pub mod relay_auth;
 pub mod types;
 pub mod utils;
+pub use error::{Error, Result};

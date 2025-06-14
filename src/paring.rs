@@ -1,11 +1,11 @@
 use crate::cacao::Cacao;
 use crate::connection::Connection;
 use crate::error::{Error, Result};
-use crate::message::{Message, WcMessage, WcMethod};
+use crate::message::Message;
 use crate::types::{
     EncryptedMessage, IrnTag, Namespace, Participant, Relay,
-    SessionAuthenticateParams, SessionAuthenticateResponse,
-    SessionProposeParams, SessionProposeResponse, SessionSettleParams,
+    SessionAuthenticateResponse, SessionProposeResponse, SessionSettleParams,
+    WcMessage, WcMethod, WcParams,
 };
 use crate::utils::{
     DAYS, UriParameters, derive_sym_key, random_bytes32, sha256, unix_timestamp,
@@ -32,8 +32,8 @@ pub struct Pairing<'a> {
     private_key: [u8; 32],
     params: UriParameters,
     connection: &'a Connection,
-    proposal_request: Option<Message<SessionProposeParams>>,
-    authenticate_request: Option<Message<SessionAuthenticateParams>>,
+    proposal_request: Option<WcMessage>,
+    authenticate_request: Option<WcMessage>,
     approve_done: bool,
 }
 
@@ -72,40 +72,45 @@ impl<'a> Pairing<'a> {
 
         if messages.len() == 1 {
             // Sometimes dApps send us just the SessionPropose message
-            self.proposal_request =
-                Some(messages[0].try_decode::<SessionProposeParams>()?);
+            if !messages[0].is(WcMethod::SessionPropose) {
+                return Err("SessionPropose message not found".into());
+            }
+
+            self.proposal_request = Some(messages[0].clone());
         } else if messages.len() == 2 {
             // Sometimes dApps send us both SessionPropose and SessionAuthenticate messages
-            let (proposal_request, authenticate_request) =
-                if messages[0].is(WcMethod::SessionPropose) {
-                    (&messages[0], &messages[1])
-                } else {
-                    (&messages[1], &messages[0])
-                };
+            let proposal_request = messages
+                .iter()
+                .find(|m| m.method == Some(WcMethod::SessionPropose))
+                .ok_or("SessionPropose message not found")?;
 
-            let proposal_request =
-                proposal_request.try_decode::<SessionProposeParams>()?;
-            let authenticate_request = authenticate_request
-                .try_decode::<SessionAuthenticateParams>(
-            )?;
-            assert_eq!(
-                proposal_request
-                    .params
-                    .as_ref()
-                    .unwrap()
-                    .proposer
-                    .public_key,
-                authenticate_request
-                    .params
-                    .as_ref()
-                    .unwrap()
-                    .requester
-                    .public_key,
-                "proposer and requester public keys are not equal - {messages:?}"
-            );
+            let authenticate_request = messages
+                .iter()
+                .find(|m| m.method == Some(WcMethod::SessionAuthenticate))
+                .ok_or("SessionAuthenticate message not found")?;
 
             self.proposal_request = Some(proposal_request.clone());
             self.authenticate_request = Some(authenticate_request.clone());
+
+            let proposal_request = proposal_request
+                .params
+                .as_ref()
+                .ok_or(crate::Error::EmptyParams)?
+                .as_session_propose()
+                .ok_or(crate::Error::InternalError2("not session propose"))?;
+            let authenticate_request = authenticate_request
+                .params
+                .as_ref()
+                .ok_or(crate::Error::EmptyParams)?
+                .as_session_authenticate()
+                .ok_or(crate::Error::InternalError2(
+                    "not session authenticate",
+                ))?;
+            assert_eq!(
+                proposal_request.proposer.public_key,
+                authenticate_request.requester.public_key,
+                "proposer and requester public keys are not equal - {messages:?}"
+            );
         }
         Ok(())
     }
@@ -140,7 +145,7 @@ impl<'a> Pairing<'a> {
         self.subscribe(Topic::Derived).await?;
 
         let session_settle =
-            self.new_message(WcMessage::SessionSettle(SessionSettleParams {
+            self.new_message(WcParams::SessionSettle(SessionSettleParams {
                 controller: self.participant(),
                 expiry: unix_timestamp()? + 10 * DAYS,
                 namespaces: [(
@@ -169,7 +174,7 @@ impl<'a> Pairing<'a> {
                     protocol: "irn".to_string(),
                 },
                 session_properties: None,
-            }));
+            }))?;
 
         self.send_message(
             Topic::Derived,
@@ -224,7 +229,7 @@ impl<'a> Pairing<'a> {
         &self,
         topic: Topic,
         dur: Option<Duration>,
-    ) -> Result<Vec<Message>> {
+    ) -> Result<Vec<WcMessage>> {
         loop {
             let result = self.fetch_messages(topic).await?;
             if !result.is_empty() {
@@ -234,14 +239,14 @@ impl<'a> Pairing<'a> {
         }
     }
 
-    fn new_message(&self, content: WcMessage) -> Message {
-        Message {
+    fn new_message(&self, wc_params: WcParams) -> crate::Result<Message> {
+        Ok(Message {
             jsonrpc: "2.0".to_string(),
-            method: Some(content.method()),
-            params: Some(content.params()),
+            method: Some(wc_params.method().to_string()),
+            params: Some(wc_params.into_value()?),
             result: None,
             id: self.connection.get_id(),
-        }
+        })
     }
 
     /// Subscribe to the topic so we can fetch messages
@@ -251,19 +256,22 @@ impl<'a> Pairing<'a> {
         self.connection.irn_subscribe(&self.topic(topic)?).await
     }
 
-    async fn fetch_messages(&self, topic: Topic) -> Result<Vec<Message>> {
+    async fn fetch_messages(&self, topic: Topic) -> Result<Vec<WcMessage>> {
         self.connection
             .irn_fetch_messages(&self.topic(topic)?)
             .await?
             .iter()
-            .map(|m| Message::decrypt(&m.message, self.sym_key(topic)?, None))
+            .map(|m| {
+                Message::decrypt(&m.message, self.sym_key(topic)?, None)
+                    .and_then(|m| m.decode())
+            })
             .collect()
     }
 
     pub async fn send_message<T>(
         &self,
         topic: Topic,
-        message: Message<T>,
+        message: Message<String, T>,
         type_byte: Option<u8>,
         tag: IrnTag,
         ttl: u64,
@@ -302,11 +310,13 @@ impl<'a> Pairing<'a> {
             .proposal_request
             .as_ref()
             .and_then(|p| p.params.as_ref())
+            .and_then(|p| p.as_session_propose())
             .map(|p| &p.proposer.public_key);
         let auth_public_key = self
             .authenticate_request
             .as_ref()
             .and_then(|p| p.params.as_ref())
+            .and_then(|p| p.as_session_authenticate())
             .map(|p| &p.requester.public_key);
         proposer_public_key
             .or(auth_public_key)
@@ -346,7 +356,7 @@ impl<'a> Pairing<'a> {
         })
     }
 
-    pub fn get_proposal(&self) -> Result<&Message<SessionProposeParams>> {
+    pub fn get_proposal(&self) -> Result<&WcMessage> {
         self.proposal_request
             .as_ref()
             .ok_or("error: proposal_request is None".into())
@@ -356,11 +366,7 @@ impl<'a> Pairing<'a> {
         &self,
         account_address: Address,
         chain_id: u64,
-    ) -> Result<(
-        Cacao,
-        Message<SessionProposeParams>,
-        Message<SessionAuthenticateParams>,
-    )> {
+    ) -> Result<(Cacao, WcMessage, WcMessage)> {
         if self.proposal_request.is_none()
             || self.authenticate_request.is_none()
         {
@@ -375,6 +381,8 @@ impl<'a> Pairing<'a> {
                 .params
                 .as_ref()
                 .unwrap()
+                .as_session_authenticate()
+                .unwrap()
                 .auth_payload,
             account_address,
             chain_id,
@@ -382,6 +390,7 @@ impl<'a> Pairing<'a> {
 
         Ok((
             cacao,
+            // TODO is this necessary?
             self.proposal_request.clone().unwrap(),
             self.authenticate_request.clone().unwrap(),
         ))

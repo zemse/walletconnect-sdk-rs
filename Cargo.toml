@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 serde = { version = "1.0.219", features = ["derive"] }
 serde_json = "1.0.140"
+serde_plain = "1.0.2"
 url = "2.5.4"
 alloy = { version = "0.11", features = ["full", "rlp"] }
 rand = "0.8"
