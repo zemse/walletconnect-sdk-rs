@@ -1,3 +1,8 @@
+/// Connection
+///
+/// Authenticate with the WalletConnect RPC using JWT and fetch or publish
+/// encrypted payloads.
+///
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use log::debug;

@@ -2,7 +2,7 @@
 
 > this is an unofficial implementation
 
-checkout examples to see how it works.
+checkout [examples](./examples) to see how it works.
 
 ## features support
 

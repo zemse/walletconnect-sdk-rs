@@ -1,3 +1,7 @@
+/// Error
+///
+/// Wraps all the relevant errors in this crate.
+///
 use crate::types::JsonRpcError;
 
 pub type Result<T, E = Error> = core::result::Result<T, E>;

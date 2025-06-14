@@ -1,3 +1,16 @@
+/// Pairing
+///
+/// Implementation of walletconnect specs to pair with a dApp and fetch messages.
+///
+use std::time::Duration;
+use std::{str, thread};
+
+use alloy::hex;
+use alloy::primitives::Address;
+use serde::Serialize;
+use serde::de::DeserializeOwned;
+use serde_json::Value;
+
 use crate::cacao::Cacao;
 use crate::connection::Connection;
 use crate::error::{Error, Result};
@@ -10,13 +23,6 @@ use crate::types::{
 use crate::utils::{
     DAYS, UriParameters, derive_sym_key, random_bytes32, sha256, unix_timestamp,
 };
-use alloy::hex;
-use alloy::primitives::Address;
-use serde::Serialize;
-use serde::de::DeserializeOwned;
-use serde_json::Value;
-use std::time::Duration;
-use std::{str, thread};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Topic {

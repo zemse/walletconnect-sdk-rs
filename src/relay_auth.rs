@@ -1,3 +1,7 @@
+/// Relay Auth
+///
+/// Utils to sign JWT for authorizing with Relay RPC
+///
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use alloy::hex;

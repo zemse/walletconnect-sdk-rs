@@ -1,3 +1,7 @@
+/// Utils
+///
+/// Some helpful utils
+///
 use std::{
     collections::HashMap,
     time::{SystemTime, UNIX_EPOCH},

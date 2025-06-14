@@ -1,16 +1,20 @@
-use crate::error::Result;
-use log::debug;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-use crate::types::Id;
+/// Message
+///
+/// Logic to encrypt and decrypt raw payload, which can be sent over the IRN.
+///
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
 use aes_gcm::{Key, Nonce};
 use alloy::hex;
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
 use chacha20poly1305::ChaCha20Poly1305;
+use log::debug;
 use rand::RngCore;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::error::Result;
+use crate::types::Id;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Message<M = String, T = Value> {
@@ -296,12 +300,11 @@ impl EncryptedEnvelope {
 
 #[cfg(test)]
 mod tests {
-    use crate::message::TYPE_1;
+    use serde_json::{Number, json};
 
     use super::*;
+    use crate::message::TYPE_1;
     use crate::{relay_auth::Keypair, types::Id, utils::derive_sym_key};
-
-    use serde_json::{Number, json};
 
     #[test]
     fn test_encrypt_decrypt() {

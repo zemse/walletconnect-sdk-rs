@@ -1,3 +1,11 @@
+/// CACAO object
+///
+/// Used to authenticate that user controls a wallet address.
+/// This implementation does not support smart wallets yet.
+///
+use std::fmt::{Display, Write};
+use std::str::FromStr;
+
 use alloy::primitives::Address;
 use alloy::signers::Signature;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -5,9 +13,6 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::error::{Error, Result};
 use crate::types::AuthPayload;
 use crate::utils::str_timestamp;
-
-use std::fmt::{Display, Write};
-use std::str::FromStr;
 
 // https://specs.walletconnect.com/2.0/specs/clients/core/identity/identity-keys#cacao-format
 #[derive(Debug, Serialize, Deserialize)]

@@ -1,17 +1,22 @@
+/// Types
+///
+/// All the RPC types and logic to encode and decode. There are some tests with
+/// actual payloads to ensure that the logic works.
+///
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use std::str::FromStr;
 
-use crate::cacao::Cacao;
-use crate::error::Result;
-use crate::message::Message;
-// use crate::utils::deserialize_str;
 use alloy::rpc::types::TransactionRequest;
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Number;
 use serde_json::Value;
+
+use crate::cacao::Cacao;
+use crate::error::Result;
+use crate::message::Message;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(untagged)]

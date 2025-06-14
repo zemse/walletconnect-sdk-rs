@@ -1,5 +1,3 @@
-// Use a module or crate structure as you prefer. Here is a simple file-level example:
-
 pub const JWT_IRIDIUM_ALG: &str = "EdDSA";
 pub const JWT_IRIDIUM_TYP: &str = "JWT";
 
