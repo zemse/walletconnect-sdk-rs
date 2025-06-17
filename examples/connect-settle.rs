@@ -1,5 +1,5 @@
 use walletconnect_sdk::{
-    connection::Connection, paring::Topic, types::Metadata,
+    connection::Connection, pairing::Topic, types::Metadata,
 };
 
 /// This example shows how to use connect to a dApp using our wallet and use the

@@ -12,7 +12,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
 use crate::error::Result;
-use crate::paring::Pairing;
+use crate::pairing::Pairing;
 use crate::relay_auth::RelayAuth;
 use crate::types::{
     EncryptedMessage, FetchMessageResult, Id, JsonRpcMethod, JsonRpcRequest,

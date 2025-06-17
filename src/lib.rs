@@ -3,7 +3,7 @@ pub mod connection;
 pub mod constants;
 pub mod error;
 pub mod message;
-pub mod paring;
+pub mod pairing;
 pub mod relay_auth;
 pub mod types;
 pub mod utils;
