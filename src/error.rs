@@ -13,6 +13,7 @@ pub enum Error {
     SymKeyNotMentioned,
     PathEndNotFound,
     EmptyParams,
+    PairingNotApproved,
     MethodIsNone(String),
     InvalidIrnTag(u16),
     ParseInt(std::num::ParseIntError),

@@ -129,7 +129,7 @@ impl<'a> Pairing<'a> {
     pub async fn approve_with_session_settle(
         &mut self,
         account_address: Address,
-    ) -> Result<()> {
+    ) -> Result<Vec<WcMessage>> {
         let response = self.get_proposal()?.create_success_response(
             SessionProposeResponse {
                 relay: Relay {
@@ -141,7 +141,7 @@ impl<'a> Pairing<'a> {
 
         self.send_message(
             Topic::Initial,
-            response,
+            &response,
             Some(0),
             IrnTag::SessionProposeResponse,
             3600,
@@ -184,18 +184,46 @@ impl<'a> Pairing<'a> {
 
         self.send_message(
             Topic::Derived,
-            session_settle,
+            &session_settle,
             Some(0),
             IrnTag::SessionSettle,
             3600,
         )
         .await?;
 
-        // TODO handle further session
-        // let messages = self.fetch_messages(Topic::Derived)?;
+        let mut excess_messages = vec![];
+        let mut success = false;
 
-        self.approve_done = true;
-        Ok(())
+        loop {
+            let mut messages = self.fetch_messages(Topic::Derived).await?;
+            let mut rm_idx = None;
+            for (i, msg) in messages.iter().enumerate() {
+                if msg.id == session_settle.id {
+                    let result =
+                        msg.params.as_ref().unwrap().as_result::<bool>();
+
+                    if let Some(result) = result {
+                        success = result;
+                    }
+
+                    rm_idx = Some(i);
+                }
+            }
+            if let Some(i) = rm_idx {
+                messages.remove(i);
+            }
+            excess_messages.extend(messages);
+            if rm_idx.is_some() {
+                break;
+            }
+        }
+
+        if success {
+            self.approve_done = true;
+            Ok(excess_messages)
+        } else {
+            Err(crate::Error::PairingNotApproved)
+        }
     }
 
     /// Approve the pairing by responding to wc_sessionAuthenticate
@@ -221,7 +249,7 @@ impl<'a> Pairing<'a> {
 
         self.send_message(
             Topic::Derived,
-            message,
+            &message,
             Some(1),
             IrnTag::SessionAuthenticateResponse,
             3600,
@@ -277,7 +305,7 @@ impl<'a> Pairing<'a> {
     pub async fn send_message<T>(
         &self,
         topic: Topic,
-        message: Message<String, T>,
+        message: &Message<String, T>,
         type_byte: Option<u8>,
         tag: IrnTag,
         ttl: u64,

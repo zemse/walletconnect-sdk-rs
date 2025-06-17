@@ -8,7 +8,7 @@ use std::fmt::{self, Display};
 use std::str::FromStr;
 
 use alloy::rpc::types::TransactionRequest;
-use serde::de::{MapAccess, Visitor};
+use serde::de::{DeserializeOwned, MapAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Number;
@@ -166,6 +166,8 @@ pub enum WcMethod {
 
     #[serde(rename = "wc_sessionRequest")]
     SessionRequest,
+
+    None,
 }
 
 impl Display for WcMethod {
@@ -188,6 +190,7 @@ pub enum WcParams {
     SessionAuthenticate(SessionAuthenticateParams),
     SessionSettle(SessionSettleParams),
     SessionRequest(SessionRequestParams),
+    Result(Value),
 }
 
 impl Serialize for WcParams {
@@ -200,6 +203,7 @@ impl Serialize for WcParams {
             WcParams::SessionAuthenticate(p) => p.serialize(serializer),
             WcParams::SessionSettle(p) => p.serialize(serializer),
             WcParams::SessionRequest(p) => p.serialize(serializer),
+            WcParams::Result(v) => v.serialize(serializer),
         }
     }
 }
@@ -211,6 +215,7 @@ impl WcParams {
             Self::SessionSettle(_) => WcMethod::SessionSettle,
             Self::SessionAuthenticate(_) => WcMethod::SessionAuthenticate,
             Self::SessionRequest(_) => WcMethod::SessionRequest,
+            Self::Result(_) => WcMethod::None,
         }
     }
 
@@ -247,6 +252,16 @@ impl WcParams {
             _ => None,
         }
     }
+
+    pub fn as_result<R>(&self) -> Option<R>
+    where
+        R: DeserializeOwned,
+    {
+        match self {
+            WcParams::Result(v) => serde_json::from_value::<R>(v.clone()).ok(),
+            _ => None,
+        }
+    }
 }
 
 pub type WcMessage = Message<WcMethod, WcParams>;
@@ -262,7 +277,6 @@ impl FromStr for WcMessage {
 
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         let message = serde_json::from_str::<Message>(s)?;
-        println!("got message");
         message.decode()
     }
 }
@@ -287,46 +301,51 @@ impl TryFrom<Message> for WcMessage {
     type Error = crate::Error;
 
     fn try_from(msg: Message) -> std::result::Result<Self, Self::Error> {
-        println!("1");
-        let method = msg
-            .method
-            .as_ref()
-            .ok_or_else(|| {
+        let method = match &msg.method {
+            Some(m) => WcMethod::from_str(m).map_err(|e| {
                 crate::Error::InternalError3(
-                    "Method is none",
-                    serde_json::to_string(&msg).unwrap(),
+                    "Invalid method",
+                    format!("{m} {e:?}"),
                 )
-            })
-            .and_then(|s| WcMethod::from_str(s))?;
-        println!("2");
-        let params = msg.params.as_ref().ok_or_else(|| {
-            crate::Error::InternalError3(
+            })?,
+            None => WcMethod::None,
+        };
+        if method != WcMethod::None && msg.params.is_none() {
+            return Err(crate::Error::InternalError3(
                 "Params is none",
                 serde_json::to_string(&msg).unwrap(),
-            )
-        })?;
-        println!("3");
+            ));
+        }
         let wc_params = match method {
             WcMethod::SessionPropose => {
                 WcParams::SessionPropose(serde_json::from_value::<
                     SessionProposeParams,
-                >(params.clone())?)
+                >(
+                    msg.params.unwrap().clone()
+                )?)
             }
             WcMethod::SessionAuthenticate => {
                 WcParams::SessionAuthenticate(serde_json::from_value::<
                     SessionAuthenticateParams,
-                >(params.clone())?)
+                >(
+                    msg.params.unwrap().clone()
+                )?)
             }
             WcMethod::SessionSettle => {
                 WcParams::SessionSettle(serde_json::from_value::<
                     SessionSettleParams,
-                >(params.clone())?)
+                >(
+                    msg.params.unwrap().clone()
+                )?)
             }
             WcMethod::SessionRequest => {
                 WcParams::SessionRequest(serde_json::from_value::<
                     SessionRequestParams,
-                >(params.clone())?)
+                >(
+                    msg.params.unwrap().clone()
+                )?)
             }
+            WcMethod::None => WcParams::Result(msg.result.unwrap_or_default()),
         };
 
         Ok(Message {
