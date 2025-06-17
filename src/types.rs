@@ -167,6 +167,9 @@ pub enum WcMethod {
     #[serde(rename = "wc_sessionRequest")]
     SessionRequest,
 
+    #[serde(rename = "wc_sessionDelete")]
+    SessionDelete,
+
     None,
 }
 
@@ -190,6 +193,7 @@ pub enum WcParams {
     SessionAuthenticate(SessionAuthenticateParams),
     SessionSettle(SessionSettleParams),
     SessionRequest(SessionRequestParams),
+    SessionDelete(Value),
     Result(Value),
 }
 
@@ -203,6 +207,7 @@ impl Serialize for WcParams {
             WcParams::SessionAuthenticate(p) => p.serialize(serializer),
             WcParams::SessionSettle(p) => p.serialize(serializer),
             WcParams::SessionRequest(p) => p.serialize(serializer),
+            WcParams::SessionDelete(v) => v.serialize(serializer),
             WcParams::Result(v) => v.serialize(serializer),
         }
     }
@@ -215,6 +220,7 @@ impl WcParams {
             Self::SessionSettle(_) => WcMethod::SessionSettle,
             Self::SessionAuthenticate(_) => WcMethod::SessionAuthenticate,
             Self::SessionRequest(_) => WcMethod::SessionRequest,
+            Self::SessionDelete(_) => WcMethod::SessionDelete,
             Self::Result(_) => WcMethod::None,
         }
     }
@@ -344,6 +350,9 @@ impl TryFrom<Message> for WcMessage {
                 >(
                     msg.params.unwrap().clone()
                 )?)
+            }
+            WcMethod::SessionDelete => {
+                WcParams::SessionDelete(msg.params.unwrap().clone())
             }
             WcMethod::None => WcParams::Result(msg.result.unwrap_or_default()),
         };
