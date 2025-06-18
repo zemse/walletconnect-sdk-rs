@@ -34,7 +34,7 @@ async fn main() {
     // "Connect Wallet" and select WalletConnect
     let uri_from_dapp = "wc:60b429580a4c390b05661a1921a806abe0fa9891c6f38b303a519367d3aafba0@2?relay-protocol=irn&symKey=d08415aff3fb5b387b4a607ad20d5431e81e54dad759f9a658d99353a6815775&expiryTimestamp=1744387698&methods=wc_sessionAuthenticate";
 
-    let pairing = conn
+    let (pairing, _) = conn
         .init_pairing(uri_from_dapp)
         .await
         .expect("pairing failed");

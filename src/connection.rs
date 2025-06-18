@@ -18,6 +18,7 @@ use crate::types::{
     EncryptedMessage, Id, IrnFetchMessageResult, JsonRpcMethod, JsonRpcRequest,
     JsonRpcResponse, Metadata,
 };
+use crate::wc_message::WcMessage;
 
 pub struct Connection {
     rpc: String,
@@ -62,10 +63,13 @@ impl Connection {
         (date_ns + extra).into()
     }
 
-    pub async fn init_pairing(&self, uri: &str) -> Result<Pairing> {
+    pub async fn init_pairing(
+        &self,
+        uri: &str,
+    ) -> Result<(Pairing, WcMessage)> {
         let mut pairing = Pairing::new(uri, self);
-        pairing.init_pairing().await?;
-        Ok(pairing)
+        let m = pairing.init_pairing().await?;
+        Ok((pairing, m))
     }
 
     pub async fn irn_subscribe(&self, topic: &str) -> Result<String> {

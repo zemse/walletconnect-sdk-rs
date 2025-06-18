@@ -47,6 +47,7 @@ impl<'a> Pairing<'a> {
     pub fn new(uri: &str, connection: &'a Connection) -> Self {
         let params = UriParameters::from(uri.to_string());
         Self {
+            // Generate a fresh private key for the pairing
             private_key: random_bytes32(),
             params,
             connection,
@@ -64,7 +65,7 @@ impl<'a> Pairing<'a> {
     /// 4. Check if the first message is a session_propose and the second is a session_authenticate
     ///
     /// To continue the process further, use the `approve` method
-    pub async fn init_pairing(&mut self) -> Result<()> {
+    pub async fn init_pairing(&mut self) -> Result<WcMessage> {
         self.subscribe(Topic::Initial).await?;
 
         let messages = self.fetch_messages(Topic::Initial).await?;
@@ -83,6 +84,7 @@ impl<'a> Pairing<'a> {
             }
 
             self.proposal_request = Some(messages[0].clone());
+            Ok(messages[0].clone())
         } else if messages.len() == 2 {
             // Sometimes dApps send us both SessionPropose and SessionAuthenticate messages
             let proposal_request = messages
@@ -98,21 +100,31 @@ impl<'a> Pairing<'a> {
             self.proposal_request = Some(proposal_request.clone());
             self.authenticate_request = Some(authenticate_request.clone());
 
-            let proposal_request =
-                proposal_request.data.as_session_propose().ok_or(
-                    crate::Error::InternalError2("not session propose"),
-                )?;
-            let authenticate_request =
-                authenticate_request.data.as_session_authenticate().ok_or(
-                    crate::Error::InternalError2("not session authenticate"),
-                )?;
-            assert_eq!(
-                proposal_request.proposer.public_key,
-                authenticate_request.requester.public_key,
-                "proposer and requester public keys are not equal - {messages:?}"
-            );
+            {
+                let proposal_request =
+                    proposal_request.data.as_session_propose().ok_or(
+                        crate::Error::InternalError2("not session propose"),
+                    )?;
+                let authenticate_request = authenticate_request
+                    .data
+                    .as_session_authenticate()
+                    .ok_or(crate::Error::InternalError2(
+                        "not session authenticate",
+                    ))?;
+                assert_eq!(
+                    proposal_request.proposer.public_key,
+                    authenticate_request.requester.public_key,
+                    "proposer and requester public keys are not equal - {messages:?}"
+                );
+            }
+            Ok(proposal_request.clone())
+        } else {
+            Err(format!(
+                "Expected 1 or 2 messages, got {}: {messages:?}",
+                messages.len()
+            )
+            .into())
         }
-        Ok(())
     }
 
     /// Approve the pairing by using wc_sessionSettle
