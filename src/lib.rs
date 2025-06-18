@@ -7,6 +7,7 @@ pub mod pairing;
 pub mod relay_auth;
 pub mod types;
 pub mod utils;
+pub mod wc_message;
 ///
 /// API for interacting with WalletConnect relay
 ///

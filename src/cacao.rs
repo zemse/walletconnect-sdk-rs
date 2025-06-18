@@ -15,7 +15,7 @@ use crate::types::AuthPayload;
 use crate::utils::str_timestamp;
 
 // https://specs.walletconnect.com/2.0/specs/clients/core/identity/identity-keys#cacao-format
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Cacao {
     #[serde(rename = "h")]
     pub header: CacaoHeader,
@@ -96,13 +96,13 @@ impl Cacao {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CacaoHeader {
     #[serde(rename = "t")]
     pub header_type: String, // "caip122"
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CacaoPayload {
     pub domain: String,
     #[serde(rename = "aud")]
@@ -121,7 +121,7 @@ pub struct CacaoPayload {
     pub iss: DID,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CacaoSignature {
     #[serde(rename = "t")]
     pub signature_type: String, // "eip191"
@@ -186,7 +186,7 @@ impl CacaoPayload {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct DID {
     pub chain_id: String,
     pub account_address: Address,

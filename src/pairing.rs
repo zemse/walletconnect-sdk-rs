@@ -18,11 +18,11 @@ use crate::message::Message;
 use crate::types::{
     EncryptedMessage, IrnTag, Namespace, Participant, Relay,
     SessionAuthenticateResponse, SessionProposeResponse, SessionSettleParams,
-    WcMessage, WcMethod, WcParams,
 };
 use crate::utils::{
     DAYS, UriParameters, derive_sym_key, random_bytes32, sha256, unix_timestamp,
 };
+use crate::wc_message::{WcData, WcMessage, WcMethod};
 
 #[derive(Debug, Clone, Copy)]
 pub enum Topic {
@@ -78,7 +78,7 @@ impl<'a> Pairing<'a> {
 
         if messages.len() == 1 {
             // Sometimes dApps send us just the SessionPropose message
-            if !messages[0].is(WcMethod::SessionPropose) {
+            if messages[0].method() == Some(WcMethod::SessionPropose) {
                 return Err("SessionPropose message not found".into());
             }
 
@@ -87,31 +87,25 @@ impl<'a> Pairing<'a> {
             // Sometimes dApps send us both SessionPropose and SessionAuthenticate messages
             let proposal_request = messages
                 .iter()
-                .find(|m| m.method == Some(WcMethod::SessionPropose))
+                .find(|m| m.method() == Some(WcMethod::SessionPropose))
                 .ok_or("SessionPropose message not found")?;
 
             let authenticate_request = messages
                 .iter()
-                .find(|m| m.method == Some(WcMethod::SessionAuthenticate))
+                .find(|m| m.method() == Some(WcMethod::SessionAuthenticate))
                 .ok_or("SessionAuthenticate message not found")?;
 
             self.proposal_request = Some(proposal_request.clone());
             self.authenticate_request = Some(authenticate_request.clone());
 
-            let proposal_request = proposal_request
-                .params
-                .as_ref()
-                .ok_or(crate::Error::EmptyParams)?
-                .as_session_propose()
-                .ok_or(crate::Error::InternalError2("not session propose"))?;
-            let authenticate_request = authenticate_request
-                .params
-                .as_ref()
-                .ok_or(crate::Error::EmptyParams)?
-                .as_session_authenticate()
-                .ok_or(crate::Error::InternalError2(
-                    "not session authenticate",
-                ))?;
+            let proposal_request =
+                proposal_request.data.as_session_propose().ok_or(
+                    crate::Error::InternalError2("not session propose"),
+                )?;
+            let authenticate_request =
+                authenticate_request.data.as_session_authenticate().ok_or(
+                    crate::Error::InternalError2("not session authenticate"),
+                )?;
             assert_eq!(
                 proposal_request.proposer.public_key,
                 authenticate_request.requester.public_key,
@@ -151,7 +145,7 @@ impl<'a> Pairing<'a> {
         self.subscribe(Topic::Derived).await?;
 
         let session_settle =
-            self.new_message(WcParams::SessionSettle(SessionSettleParams {
+            self.new_message(WcData::SessionSettle(SessionSettleParams {
                 controller: self.participant(),
                 expiry: unix_timestamp()? + 10 * DAYS,
                 namespaces: [(
@@ -199,8 +193,7 @@ impl<'a> Pairing<'a> {
             let mut rm_idx = None;
             for (i, msg) in messages.iter().enumerate() {
                 if msg.id == session_settle.id {
-                    let result =
-                        msg.params.as_ref().unwrap().as_result::<bool>();
+                    let result = msg.data.as_result::<bool>();
 
                     if let Some(result) = result {
                         success = result;
@@ -273,11 +266,14 @@ impl<'a> Pairing<'a> {
         }
     }
 
-    fn new_message(&self, wc_params: WcParams) -> crate::Result<Message> {
+    fn new_message(&self, data: WcData) -> crate::Result<Message> {
+        if data.result()?.is_some() {
+            return Err("Cannot create new message with result".into());
+        }
         Ok(Message {
             jsonrpc: "2.0".to_string(),
-            method: Some(wc_params.method().to_string()),
-            params: Some(wc_params.into_value()?),
+            method: data.method().map(|s| s.to_string()),
+            params: data.params()?,
             result: None,
             id: self.connection.get_id(),
         })
@@ -343,14 +339,12 @@ impl<'a> Pairing<'a> {
         let proposer_public_key = self
             .proposal_request
             .as_ref()
-            .and_then(|p| p.params.as_ref())
-            .and_then(|p| p.as_session_propose())
+            .and_then(|p| p.data.as_session_propose())
             .map(|p| &p.proposer.public_key);
         let auth_public_key = self
             .authenticate_request
             .as_ref()
-            .and_then(|p| p.params.as_ref())
-            .and_then(|p| p.as_session_authenticate())
+            .and_then(|p| p.data.as_session_authenticate())
             .map(|p| &p.requester.public_key);
         proposer_public_key
             .or(auth_public_key)
@@ -363,7 +357,7 @@ impl<'a> Pairing<'a> {
             )?
     }
 
-    pub fn participant(&self) -> Participant {
+    pub(crate) fn participant(&self) -> Participant {
         Participant {
             public_key: self.public_key(),
             metadata: self.connection.metadata().clone(),
@@ -396,6 +390,7 @@ impl<'a> Pairing<'a> {
             .ok_or("error: proposal_request is None".into())
     }
 
+    #[allow(dead_code)]
     pub fn get_proposal_old(
         &self,
         account_address: Address,
@@ -412,9 +407,7 @@ impl<'a> Pairing<'a> {
                 .authenticate_request
                 .as_ref()
                 .unwrap()
-                .params
-                .as_ref()
-                .unwrap()
+                .data
                 .as_session_authenticate()
                 .unwrap()
                 .auth_payload,
