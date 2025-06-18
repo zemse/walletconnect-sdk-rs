@@ -90,11 +90,23 @@ pub struct JsonRpcError {
     data: Option<Value>,
 }
 
-// https://specs.walletconnect.com/2.0/specs/clients/sign/rpc-methods#methods
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[repr(u16)]
 #[serde(try_from = "u16", into = "u16")]
 pub enum IrnTag {
+    // https://specs.walletconnect.com/2.0/specs/clients/core/pairing/rpc-methods#methods
+    UnsupportedMethod = 0,
+
+    PairingDelete = 1000,
+    PairingDeleteResponse = 1001,
+
+    PairingPing = 1002,
+    PairingPingResponse = 1003,
+
+    PairingExtend = 1004,
+    PairingExtendResponse = 1005,
+
+    // https://specs.walletconnect.com/2.0/specs/clients/sign/rpc-methods#methods
     SessionPropose = 1100,
     SessionProposeApproveResponse = 1101,
     SessionProposeRejectResponse = 1120,
@@ -138,6 +150,17 @@ impl TryFrom<u16> for IrnTag {
 
     fn try_from(value: u16) -> Result<Self, Self::Error> {
         match value {
+            0 => Ok(IrnTag::UnsupportedMethod),
+
+            1000 => Ok(IrnTag::PairingDelete),
+            1001 => Ok(IrnTag::PairingDeleteResponse),
+
+            1002 => Ok(IrnTag::PairingPing),
+            1003 => Ok(IrnTag::PairingPingResponse),
+
+            1004 => Ok(IrnTag::PairingExtend),
+            1005 => Ok(IrnTag::PairingExtendResponse),
+
             1100 => Ok(IrnTag::SessionPropose),
             1101 => Ok(IrnTag::SessionProposeApproveResponse),
             1120 => Ok(IrnTag::SessionProposeRejectResponse),
