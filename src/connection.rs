@@ -15,7 +15,7 @@ use crate::error::Result;
 use crate::pairing::Pairing;
 use crate::relay_auth::RelayAuth;
 use crate::types::{
-    EncryptedMessage, FetchMessageResult, Id, JsonRpcMethod, JsonRpcRequest,
+    EncryptedMessage, Id, IrnFetchMessageResult, JsonRpcMethod, JsonRpcRequest,
     JsonRpcResponse, Metadata,
 };
 
@@ -85,7 +85,7 @@ impl Connection {
         let mut arr = vec![];
         loop {
             let result = self
-                .request::<FetchMessageResult>(
+                .request::<IrnFetchMessageResult>(
                     JsonRpcMethod::IrnFetchMessages,
                     Some(json!({
                         "topic": topic

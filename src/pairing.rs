@@ -137,7 +137,7 @@ impl<'a> Pairing<'a> {
             Topic::Initial,
             &response,
             Some(0),
-            IrnTag::SessionProposeResponse,
+            IrnTag::SessionAuthenticateApproveResponse,
             3600,
         )
         .await?;
@@ -244,7 +244,7 @@ impl<'a> Pairing<'a> {
             Topic::Derived,
             &message,
             Some(1),
-            IrnTag::SessionAuthenticateResponse,
+            IrnTag::SessionAuthenticateApproveResponse,
             3600,
         )
         .await?;

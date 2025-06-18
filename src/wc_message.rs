@@ -7,7 +7,8 @@ use crate::{
     message::Message,
     types::{
         Id, SessionAuthenticateParams, SessionAuthenticateResponse,
-        SessionProposeParams, SessionRequestParams, SessionSettleParams,
+        SessionProposeParams, SessionProposeResponse, SessionRequestParams,
+        SessionSettleParams,
     },
 };
 
@@ -94,6 +95,7 @@ pub enum WcData {
     SessionRequest(SessionRequestParams),
     SessionDelete(Value),
 
+    SessionProposeResponse(SessionProposeResponse),
     SessionAuthenticateResponse(SessionAuthenticateResponse),
     SessionSettleResult(bool),
     UnknownResult(Value),
@@ -111,6 +113,7 @@ impl Serialize for WcData {
             Self::SessionRequest(p) => p.serialize(serializer),
             Self::SessionDelete(v) => v.serialize(serializer),
 
+            Self::SessionProposeResponse(p) => p.serialize(serializer),
             Self::SessionAuthenticateResponse(p) => p.serialize(serializer),
             Self::SessionSettleResult(p) => p.serialize(serializer),
             Self::UnknownResult(v) => v.serialize(serializer),
@@ -127,10 +130,9 @@ impl WcData {
             Self::SessionRequest(_) => Some(WcMethod::SessionRequest),
             Self::SessionDelete(_) => Some(WcMethod::SessionDelete),
 
-            Self::SessionAuthenticateResponse(_) => {
-                Some(WcMethod::SessionAuthenticate)
-            }
-            Self::SessionSettleResult(_) => Some(WcMethod::SessionSettle),
+            Self::SessionProposeResponse(_) => None,
+            Self::SessionAuthenticateResponse(_) => None,
+            Self::SessionSettleResult(_) => None,
             Self::UnknownResult(_) => None,
         }
     }
@@ -143,6 +145,7 @@ impl WcData {
             Self::SessionRequest(p) => Some(serde_json::to_value(p)?),
             Self::SessionDelete(v) => Some(v.clone()),
 
+            Self::SessionProposeResponse(_) => None,
             Self::SessionAuthenticateResponse(_) => None,
             Self::SessionSettleResult(_) => None,
             Self::UnknownResult(_) => None,
@@ -157,6 +160,9 @@ impl WcData {
             | Self::SessionRequest(_)
             | Self::SessionDelete(_) => Ok(None),
 
+            Self::SessionProposeResponse(v) => {
+                Ok(Some(serde_json::to_value(v)?))
+            }
             Self::SessionAuthenticateResponse(v) => {
                 Ok(Some(serde_json::to_value(v)?))
             }
@@ -296,6 +302,7 @@ impl TryFrom<Message> for WcMessage {
 mod tests {
     use std::str::FromStr;
 
+    use alloy::primitives::FixedBytes;
     use alloy::rpc::types::{TransactionInput, TransactionRequest};
     use alloy::signers::k256::sha2::{Digest, Sha256};
     use alloy::{
@@ -306,6 +313,7 @@ mod tests {
 
     use super::*;
     use crate::types::{
+        IrnPublishParams, IrnSubscriptionParams, JsonRpcRequest,
         SessionAuthenticateResponse, SessionRequestData, SessionRequestMethod,
     };
     use crate::{
@@ -839,5 +847,132 @@ mod tests {
                 "0x0000000000000000000000000000000000000123".to_string()
             ])
         );
+    }
+
+    #[test]
+    fn full_scenario_personal_sign() {
+        // wc:e70cc46faf27cc551138570ed7ea3d186715b1878e78e7b3a4e840897e63797e@2?relay-protocol=irn&symKey=bdc0c9a238da979b85d42ca30ba2b92049ceaa9e16c59400a49898812ee6f747&expiryTimestamp=1750246699
+        let pairing_sym_key = FixedBytes::<32>::from_str(
+            "bdc0c9a238da979b85d42ca30ba2b92049ceaa9e16c59400a49898812ee6f747",
+        )
+        .unwrap()
+        .into();
+
+        let (
+            _self_private_key,
+            _self_public_key,
+            _other_public_key,
+            _response_topic,
+            diffie_sym_key,
+            _diffie_topic,
+        ) = calculate(
+            "e4a79a1a00a823f0a6a5b791aeb72c928d16032eff54ac50d1ad927890c08bf7",
+            "0ead7d6eebb88f3b2eece0d1879b7ca76ce83b32c46b8a0d7131503c747a3022",
+        );
+
+        // session proposal sent by dapp
+        {
+            let req_1 = serde_json::from_value::<
+            JsonRpcRequest<IrnSubscriptionParams>,
+        >(json!({"id":"448063081849090","jsonrpc":"2.0","method":"irn_subscription","params":{"id":"6ef6156084c9fca668105f05cb484ef7f13dccada5992cad516998c996a9719c","data":{"topic":"e70cc46faf27cc551138570ed7ea3d186715b1878e78e7b3a4e840897e63797e","message":"AKlsUT6PHpKfKxSf9XUkTTL0DLxpf/AxqR2joQjOH0B8qMBcKfQq5ntR124+WNDXzfOamufgbr1NeWt7r5MuqwcPdyvYzY6dutqI/eAFxpAq4UiRLfH2iuAMbN4UNGzk1Ohw2+J+BeVAybEiEIAmMyF4ECtWMOcsP20tN3+7+zSwrKzgpt507yccqqpgo9ofNMJDk3hxZRoL9SNJB8BI2/gouLxRlY0fjVaRtPlobf4TYKhElieuoE/HMybTrNBDOedPSAgGIrCIdaabVlCp2cX75cfUvc2Cv9aImlFjTFgGfsu0XKbPDqNKKx5tQA7xBAk1R1fB/lNSvds6LAvu6iq2E2LLnIq5uQgrh1p80KRhoRpmFrEbs/e8ql2coSm6fHgFO7oCSUJOPlfCWnb/IwJ5x92ZUNdX3TBbp6f1YcnToKR4eWFeC5AcyuB8YuSQztPJfINTXRE85sh4gg/tBBW3y2QAZLw4j5ijnVl7o1PmLJA4Ub3Rrig4S8ke51/iUh0zbnaEiXHDisUq0wQLRjVWrmN71TIwBrHLpjQBMZ3a4IzDeG9lPfHW6Bqq0vlxHCuiB7eoUmNC6s9jy2Vl9LbesV3jxzY4aWdsvk+Vj1lZliqTS2Ey8Kgc4AIFOr+x9oHxWiK1eP/5n+ybSa8v2LIIinxLDnT+Xz9KxYG8e3vHzWsk+9+C8XObdNdVgJ0e0s8+aEjwKS8e+qTh8PKE2Z/HHsHvWaT4Tbr8Mu5bQGPtV6n4Yhdr2bJPujsVqFqzeNmPw9p6zGBZIcanLoUuQLPrSEOjz3e2+qUhkv+lJ4P6TlsVCl/P2t9vHBdxWXJ+kn6El3GHkX9c+fGDi+wcd/iaMwd6pcmaGvf0w/eGV9fXDH6h+Y4A1eBOzFtL8uIF8QqFz6NZYSFLmuXC6JWzNH72ZbTrWYeQviGhtHUcRfxA+cU1POeRU2sIsdI1dweiQD9GLdFQKB6j4QFF5iLORYEfQI/yGnS6qxl1T4kyDRZs5ymQYcXfpV3cwhJlwESHA3ygq9tUSoFPG6pZK8j0C88C78feIw9rC7ZI9gyNnX16h53arbT4Akes6lZO28JYNfVK6sg9T1FUhB2eaP8qnB6k98O0wyV1VtKhRwCYjyGy7LIMdyK+E2wlGPVJXWfW2530DS8mcmfTgAgzDRQp/Cdl0mBJ0E63PIMutWdyi0NRGrPv3U79vv9UB8nvy1E9Rcyxy2qbUqJoPlX1AyHljGMXGRzh0enln4sdZYhM8M5PppMUTHkIjuBQVo4h/6UPZgfSe9NEh9H0VyZG5nuOCPVQ7jXqBi682gFo0sbn2eYAaT/Z5lwbfH3AJUbGnMQ8gnSCd60oFSBVF/L/BpjsHHIAUFEziSjSQy/fDZs4TjyM079A625JQXrl0tqLiUn2d66Y6JgTG105pA5D0viJXjkrzFUxas8c2v0oun2fK8BOLZ66I9q+xO5k0Q3U25ZA/pofwSfQahJxFPvkvP8TDCFO/HXwdrnw4LSC/aJ22axMITIqt6sGY7kw7v0JoiCrCx9cUGLYWBPqg7caVE+V399wV1StVRAJEM0O+gUyZB7Ya/WyFs2C95yAIREK/GJOi7TekcXP5VfBikUPFqhLY69dId5f0xaUMOR0LTjo2OByYzQCJ2j3UL0k2XHy4ZkNseTjLsCQqfSsnGF8hS5MGFvPoGDoq2de6swFYdpJ/1aTWpjl","attestation":"eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTAyNDk5OTksImlkIjoiODhkODA2MmJkODA3YjQzMTU3YTk5N2ZhZTNiYWI1MTAxMzAwNWM4YTliMTZlMjI4ZjU3ZDI2ZjMxNmNjMGRhNyIsIm9yaWdpbiI6Imh0dHBzOi8vZXRoZXJzY2FuLmlvIiwiaXNTY2FtIjpmYWxzZSwiaXNWZXJpZmllZCI6dHJ1ZX0.VKm3mRYC5HL4QBZH6NkouaI3ZDQ4Rq6xy3kI9IW_24eca-c0oWpxcbh0uYfu0UP2shm83BnLCRSnqpmfZbEu5w","publishedAt":"1750246399610","tag":1100}}}))
+        .unwrap();
+            println!("\nreq_1: {req_1:#?}");
+
+            let msg_1 = Message::decrypt(
+                &req_1.params.unwrap().data.message,
+                pairing_sym_key,
+                None,
+            )
+            .unwrap()
+            .decode();
+            println!("msg_1: {msg_1:#?}");
+        }
+
+        {
+            let req_2 = serde_json::from_value::<
+            JsonRpcRequest<IrnPublishParams>,
+        >(json!({"id":"1750246415207858176","jsonrpc":"2.0","method":"irn_publish","params":{"topic":"afb4ceaf17f6fd0bbb77e6e06f4a623602c264e52ca866e874ec5dfdfe52a1a6","message":"AHrziY1VHPDlcX5IcWc7HjxNB5Fo+0CgdUmKas3q3/+zqyX9+Ve3gis/ACdChVGVoyN7dUKhNTE6xRz5IJyIffX09y/4KigMhmVTQY+VLgjeUWXa0UyAD/IDgPwR8uz+TJDQU8gfAtOMqnMlWW2VwLsSeWgGRzAJDJL3QshoxaGgHbkTr4j9tFAt4/U9xjaFFQL+1kWuUqlTcFbhQQRVZrBPkKs5Rp9C8svx+pvkFp1biGuDIEOoxM10+pTqDzlaA0eUgqe4NyDY704piYLGR1E9NRK4Tn2seKpNghp+ZSVTPv8nOCz7rlp2m7makE1NWcG9nhHbaf1Fh4VSELKcwjmC7JsDEOXEU3+eoT7l8Cd1PpIB2Vxnwoj23VJGi6+gLUOvwoZUglp9VDrgv2eNyEvnHdF/m55Q++9w8TVS5V0/yNl9+3ujpqxWPFJyPAcf2WOzY0HaCOEBNd8SlHu+xQ3ilQbxJbH/4DVuq4o+a9o0cmdfe08XwfopJrZvHgwhhnd/h3kDzEF/lL4iLiVDEglzEbEqWZrhq1ThwzcvQdh88BVMQGbeHqSPDTz0Sulb9aRGqexroK9/y3ulrIdWT1BUPNcDc4xNiXKhhKI1ww3miwJqf0/3ZAMkOAlFh2MWpM3RvIWAt0oixs+E33U4c0zs3py1wDQqlSjZ5IzhddSTk5XO3MgcoGRKYp6T/DMmtCPArtHAg0P4lriBM4tssO1YFsb74XrbZzmHKaXZRqQHzQO6bjM00kJMIb3KFuv1kDT8QTLUDifHDkoDnTSbqzNa315lJ1GCRfKpoNwLYOAEfJrWMSvzIm0kM88Dl9AzfQsYvWl/PFunafqtTu7q3QdKYTSYNc6UNgCpa4kPJnG8elf7CbTuuxy0eXuJOOK4xQQX6Xt84SdO9cF4zQ3GraPHkRkD7f3Ka/cx4vwfFr3hstqvc/PPnVozhD1WkoUx8Zr3UkZVpFOesomAaTHsf0Ial4efmYFh8u+eECdbF4fJwH++MTuITE4A/UMkJ5WKMPbui6wN90qXDVuJ5cdRrtzyLmH2HqvV+V6m/GrY3Bstz5iArWtbnt7SdXG4Jl/5fPDH/v1M04jylvo1Rfi9u+yrdjsKPfR1AStU0LNJA6WBDP3jNperpIRsfNENf1Nb0eR0mRpdNKLDNP+blxIplroXaCfEHgxp0aGi+jVEXk9YeZW+39gyjb0Egn4gTwPDHIy+MMbDB2awXpz5ErOlkJho0CYyFXjfMtaD/k5+1hOJggsxIURQALhrvhcW/2tOFtTDORiIgQlR3vK2jt0k4gfTINm/KQ==","ttl":300,"prompt":false,"tag":1102}}))
+        .unwrap();
+            println!("\nreq_2: {req_2:#?}");
+
+            let msg_2 = Message::decrypt(
+                &req_2.params.unwrap().message,
+                diffie_sym_key,
+                None,
+            )
+            .unwrap()
+            .decode();
+            println!("msg_2: {msg_2:#?}");
+        }
+
+        {
+            let req_3 = serde_json::from_value::<
+            JsonRpcRequest<IrnPublishParams>,
+        >(json!({"id":"1750246415811926016","jsonrpc":"2.0","method":"irn_publish","params":{"topic":"e70cc46faf27cc551138570ed7ea3d186715b1878e78e7b3a4e840897e63797e","message":"AHJshTKhYvdl64dwArd2vsvmO2ydtOxqIJXpfHFzy3+2WAxRuaTXx8rYhdVb8dh4oOQIwUH/Vd5U7S4E8ibeHOGKwFEqTHFfzDTcqibX51g+NWnRI9j/RPGNX3pnBkM/g/280hemT7clPZ6y7dZjrsUtNyGPRq0Rv0iVpd9eoSEYctmzsdJPeOZ6T2bioXq2A73j8ToRx+VHCORsHBRhUr675sgGIIHUkkDocJTYB2Je1wwuAchO8LWnA3xT3bTHPVg=","ttl":300,"prompt":false,"tag":1101}}))
+        .unwrap();
+            println!("\nreq_3: {req_3:#?}");
+
+            let msg_3 = Message::decrypt(
+                &req_3.params.unwrap().message,
+                pairing_sym_key,
+                None,
+            )
+            .unwrap()
+            .decode();
+            println!("msg_3: {msg_3:#?}");
+        }
+
+        {
+            let req = serde_json::from_value::<
+            JsonRpcRequest<IrnSubscriptionParams>,
+        >(json!({"id":"448063082665219","jsonrpc":"2.0","method":"irn_subscription","params":{"id":"79811a422c6a3c86dc7d84f02f92be0716f2d6fdcf60d4f84648ad7b57c83417","data":{"topic":"afb4ceaf17f6fd0bbb77e6e06f4a623602c264e52ca866e874ec5dfdfe52a1a6","message":"APTQlEFUWFg7kjBhgh3r+MSG+uxa55RbLCqyq5hKxUYQ8u7xIDWF9rZ41io6/W4cf0Pix6F2GsRP0pkfXxeLqkPwUskNvCOxckh1jKXOPndQGg==","publishedAt":"1750246416471","tag":1103}}}))
+        .unwrap();
+            println!("\nreq: {req:#?}");
+
+            let msg = Message::decrypt(
+                &req.params.unwrap().data.message,
+                diffie_sym_key,
+                None,
+            )
+            .unwrap()
+            .decode();
+            println!("msg: {msg:#?}");
+        }
+
+        {
+            let req = serde_json::from_value::<
+            JsonRpcRequest<IrnSubscriptionParams>,
+        >(json!({"id":"448063087047684","jsonrpc":"2.0","method":"irn_subscription","params":{"id":"79811a422c6a3c86dc7d84f02f92be0716f2d6fdcf60d4f84648ad7b57c83417","data":{"topic":"afb4ceaf17f6fd0bbb77e6e06f4a623602c264e52ca866e874ec5dfdfe52a1a6","message":"AGOyYTpn4DXj7g4RiGKrsrZK7t8f25GKgX1R978FIMTIObWzf7UCioUavnhHl+cmWpwKQG02/ezEg+SjwGnHnbPv+5Yc3OEBJQUFL3pQKQ8RGZUycQZoDJMu0tEtnMMNjT+9d4khymh1R2NG128kFE1ra0xb7uq6afj/KUg0TpcyFeHVDuGCMH7B1vqAj8fzhRmlLIT33s0VNmTKYNP4SGXlrv3w/qibUtEwmzJdb1z/YKrYKeFw6YYAU2RbPLr1Uuh53WOyMYKOxQL3BSpyrAvZSqc3yxGQeIr0hfc8X+VmOHTAq3w7Y+KzGnma+oq9upJFFJriZyyJrg0IBXVTpheoFkkOFSwKHHim41J0RNJ94AxGGnPADi9U0nQ=","attestation":"eyJhbGciOiJFUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NTAyNTAwMzMsImlkIjoiY2MzNmU2ODI2NmE4M2MzMDcyMWExNmQzNjEwZTdlYWFlNTZiODQ2ZmRjMWZjODA4ODk5ZWQ3N2E0NGJmMDFhMiIsIm9yaWdpbiI6Imh0dHBzOi8vZXRoZXJzY2FuLmlvIiwiaXNTY2FtIjpmYWxzZSwiaXNWZXJpZmllZCI6dHJ1ZX0.UfQoDgHxxXEQPyIU5F3ArTIG8qUGYnoa9g0M5B7R4oevLmlHsf2Hj7DbnqH32yZSGaV2i44vWEMQ0eg1e-t-8A","publishedAt":"1750246433590","tag":1108}}}))
+        .unwrap();
+            println!("\nreq: {req:#?}");
+
+            let msg = Message::decrypt(
+                &req.params.unwrap().data.message,
+                diffie_sym_key,
+                None,
+            )
+            .unwrap()
+            .decode();
+            println!("msg: {msg:#?}");
+        }
+
+        {
+            let req = serde_json::from_value::<
+            JsonRpcRequest<IrnPublishParams>,
+        >(json!({"id":"1750246437184891136","jsonrpc":"2.0","method":"irn_publish","params":{"topic":"afb4ceaf17f6fd0bbb77e6e06f4a623602c264e52ca866e874ec5dfdfe52a1a6","message":"AFuBrVKYS2ukxISpfnX9t6Jspf+9lNTO2xvVi6aOlJu/mYdMc/bxfb0hmJwO1U3QVL1739ZpdMMMoqw+Ftq93TPBvpfwcmifCND+ALuJ4fxF0/0asczvERCX/WbmeMvnBnaEiQglFlu8fQcEPRUmk5K8Lhh0SEs3REwznBg3bbiihq3+3xxc6BqvjYrG8b+gj9qQArIEwKdZ4hX0CiOzYQ6YiGy7ipcs4yt1IQ91tP2pjTKg7PHWQJOKoRrnavGvlwi3N+CNI9qAOyPqy+70/sOUWPs=","ttl":300,"prompt":false,"tag":1109}}))
+        .unwrap();
+            println!("\nreq: {req:#?}");
+
+            let msg = Message::decrypt(
+                &req.params.unwrap().message,
+                diffie_sym_key,
+                None,
+            )
+            .unwrap()
+            .decode();
+            println!("msg: {msg:#?}");
+        }
+
+        // assert!(false);
     }
 }
