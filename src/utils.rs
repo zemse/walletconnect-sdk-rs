@@ -22,7 +22,7 @@ use crate::{
     error::{Error, Result},
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct UriParameters {
     pub protocol: String,
     pub topic: String,
@@ -33,7 +33,7 @@ pub struct UriParameters {
     pub expiry_timestamp: Option<u64>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct RelayProtocolOptions {
     pub protocol: String,
     pub data: Option<String>,

@@ -20,6 +20,7 @@ use crate::types::{
 };
 use crate::wc_message::WcMessage;
 
+#[derive(Debug, Clone)]
 pub struct Connection {
     rpc: String,
     id: usize,
@@ -63,10 +64,7 @@ impl Connection {
         (date_ns + extra).into()
     }
 
-    pub async fn init_pairing(
-        &self,
-        uri: &str,
-    ) -> Result<(Pairing, WcMessage)> {
+    pub async fn init_pairing(self, uri: &str) -> Result<(Pairing, WcMessage)> {
         let mut pairing = Pairing::new(uri, self);
         let m = pairing.init_pairing().await?;
         Ok((pairing, m))

@@ -34,17 +34,18 @@ pub enum Topic {
     Derived,
 }
 
-pub struct Pairing<'a> {
+#[derive(Debug, Clone)]
+pub struct Pairing {
     private_key: [u8; 32],
     params: UriParameters,
-    connection: &'a Connection,
+    connection: Connection,
     proposal_request: Option<WcMessage>,
     authenticate_request: Option<WcMessage>,
     approve_done: bool,
 }
 
-impl<'a> Pairing<'a> {
-    pub fn new(uri: &str, connection: &'a Connection) -> Self {
+impl Pairing {
+    pub fn new(uri: &str, connection: Connection) -> Self {
         let params = UriParameters::from(uri.to_string());
         Self {
             // Generate a fresh private key for the pairing
