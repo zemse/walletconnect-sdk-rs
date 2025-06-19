@@ -80,8 +80,8 @@ impl Pairing {
 
         if messages.len() == 1 {
             // Sometimes dApps send us just the SessionPropose message
-            if messages[0].method() == Some(WcMethod::SessionPropose) {
-                return Err("SessionPropose message not found".into());
+            if messages[0].method() != Some(WcMethod::SessionPropose) {
+                return Err("Message is not SessionPropose".into());
             }
 
             self.proposal_request = Some(messages[0].clone());
