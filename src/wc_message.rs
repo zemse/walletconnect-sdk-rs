@@ -57,6 +57,9 @@ impl WcMessage {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum WcMethod {
+    #[serde(rename = "wc_sessionPing")]
+    SessionPing,
+
     #[serde(rename = "wc_sessionPropose")]
     SessionPropose,
 
@@ -89,6 +92,7 @@ impl FromStr for WcMethod {
 
 #[derive(Clone, Debug)]
 pub enum WcData {
+    SessionPing(Value),
     SessionPropose(SessionProposeParams),
     SessionAuthenticate(SessionAuthenticateParams),
     SessionSettle(SessionSettleParams),
@@ -107,6 +111,7 @@ impl Serialize for WcData {
         S: Serializer,
     {
         match self {
+            Self::SessionPing(v) => v.serialize(serializer),
             Self::SessionPropose(p) => p.serialize(serializer),
             Self::SessionAuthenticate(p) => p.serialize(serializer),
             Self::SessionSettle(p) => p.serialize(serializer),
@@ -124,6 +129,7 @@ impl Serialize for WcData {
 impl WcData {
     pub fn method(&self) -> Option<WcMethod> {
         match self {
+            Self::SessionPing(_) => Some(WcMethod::SessionPing),
             Self::SessionPropose(_) => Some(WcMethod::SessionPropose),
             Self::SessionAuthenticate(_) => Some(WcMethod::SessionAuthenticate),
             Self::SessionSettle(_) => Some(WcMethod::SessionSettle),
@@ -139,6 +145,7 @@ impl WcData {
 
     pub fn params(&self) -> crate::Result<Option<Value>> {
         Ok(match self {
+            Self::SessionPing(v) => Some(v.clone()),
             Self::SessionPropose(p) => Some(serde_json::to_value(p)?),
             Self::SessionAuthenticate(p) => Some(serde_json::to_value(p)?),
             Self::SessionSettle(p) => Some(serde_json::to_value(p)?),
@@ -154,7 +161,8 @@ impl WcData {
 
     pub fn result(&self) -> crate::Result<Option<Value>> {
         match self {
-            Self::SessionPropose(_)
+            Self::SessionPing(_)
+            | Self::SessionPropose(_)
             | Self::SessionAuthenticate(_)
             | Self::SessionSettle(_)
             | Self::SessionRequest(_)
@@ -256,6 +264,9 @@ impl TryFrom<Message> for WcMessage {
             ));
         }
         let wc_params = match method {
+            Some(WcMethod::SessionPing) => {
+                WcData::SessionPing(msg.params.unwrap_or_default())
+            }
             Some(WcMethod::SessionPropose) => {
                 WcData::SessionPropose(serde_json::from_value::<
                     SessionProposeParams,
