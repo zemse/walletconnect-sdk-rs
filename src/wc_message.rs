@@ -92,13 +92,14 @@ impl FromStr for WcMethod {
 
 #[derive(Clone, Debug)]
 pub enum WcData {
-    SessionPing(Value),
+    SessionPing,
     SessionPropose(SessionProposeParams),
     SessionAuthenticate(SessionAuthenticateParams),
     SessionSettle(SessionSettleParams),
     SessionRequest(SessionRequestParams),
     SessionDelete(Value),
 
+    SessionPingResponseSuccess,
     SessionProposeResponse(SessionProposeResponse),
     SessionAuthenticateResponse(SessionAuthenticateResponse),
     SessionSettleResult(bool),
@@ -111,13 +112,16 @@ impl Serialize for WcData {
         S: Serializer,
     {
         match self {
-            Self::SessionPing(v) => v.serialize(serializer),
+            Self::SessionPing => Value::Null.serialize(serializer),
             Self::SessionPropose(p) => p.serialize(serializer),
             Self::SessionAuthenticate(p) => p.serialize(serializer),
             Self::SessionSettle(p) => p.serialize(serializer),
             Self::SessionRequest(p) => p.serialize(serializer),
             Self::SessionDelete(v) => v.serialize(serializer),
 
+            Self::SessionPingResponseSuccess => {
+                Value::Null.serialize(serializer)
+            }
             Self::SessionProposeResponse(p) => p.serialize(serializer),
             Self::SessionAuthenticateResponse(p) => p.serialize(serializer),
             Self::SessionSettleResult(p) => p.serialize(serializer),
@@ -129,13 +133,14 @@ impl Serialize for WcData {
 impl WcData {
     pub fn method(&self) -> Option<WcMethod> {
         match self {
-            Self::SessionPing(_) => Some(WcMethod::SessionPing),
+            Self::SessionPing => Some(WcMethod::SessionPing),
             Self::SessionPropose(_) => Some(WcMethod::SessionPropose),
             Self::SessionAuthenticate(_) => Some(WcMethod::SessionAuthenticate),
             Self::SessionSettle(_) => Some(WcMethod::SessionSettle),
             Self::SessionRequest(_) => Some(WcMethod::SessionRequest),
             Self::SessionDelete(_) => Some(WcMethod::SessionDelete),
 
+            Self::SessionPingResponseSuccess => None,
             Self::SessionProposeResponse(_) => None,
             Self::SessionAuthenticateResponse(_) => None,
             Self::SessionSettleResult(_) => None,
@@ -145,13 +150,14 @@ impl WcData {
 
     pub fn params(&self) -> crate::Result<Option<Value>> {
         Ok(match self {
-            Self::SessionPing(v) => Some(v.clone()),
+            Self::SessionPing => None,
             Self::SessionPropose(p) => Some(serde_json::to_value(p)?),
             Self::SessionAuthenticate(p) => Some(serde_json::to_value(p)?),
             Self::SessionSettle(p) => Some(serde_json::to_value(p)?),
             Self::SessionRequest(p) => Some(serde_json::to_value(p)?),
             Self::SessionDelete(v) => Some(v.clone()),
 
+            Self::SessionPingResponseSuccess => None,
             Self::SessionProposeResponse(_) => None,
             Self::SessionAuthenticateResponse(_) => None,
             Self::SessionSettleResult(_) => None,
@@ -161,13 +167,14 @@ impl WcData {
 
     pub fn result(&self) -> crate::Result<Option<Value>> {
         match self {
-            Self::SessionPing(_)
+            Self::SessionPing
             | Self::SessionPropose(_)
             | Self::SessionAuthenticate(_)
             | Self::SessionSettle(_)
             | Self::SessionRequest(_)
             | Self::SessionDelete(_) => Ok(None),
 
+            Self::SessionPingResponseSuccess => Ok(Some(Value::Null)),
             Self::SessionProposeResponse(v) => {
                 Ok(Some(serde_json::to_value(v)?))
             }
@@ -264,9 +271,7 @@ impl TryFrom<Message> for WcMessage {
             ));
         }
         let wc_params = match method {
-            Some(WcMethod::SessionPing) => {
-                WcData::SessionPing(msg.params.unwrap_or_default())
-            }
+            Some(WcMethod::SessionPing) => WcData::SessionPing,
             Some(WcMethod::SessionPropose) => {
                 WcData::SessionPropose(serde_json::from_value::<
                     SessionProposeParams,
