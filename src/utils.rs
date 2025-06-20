@@ -39,9 +39,11 @@ pub struct RelayProtocolOptions {
     pub data: Option<String>,
 }
 
-impl From<String> for UriParameters {
-    fn from(uri: String) -> Self {
-        parse_uri(uri).unwrap()
+impl TryFrom<String> for UriParameters {
+    type Error = crate::Error;
+
+    fn try_from(uri: String) -> crate::Result<Self> {
+        parse_uri(uri)
     }
 }
 

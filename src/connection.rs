@@ -65,7 +65,7 @@ impl Connection {
     }
 
     pub async fn init_pairing(self, uri: &str) -> Result<(Pairing, WcMessage)> {
-        let mut pairing = Pairing::new(uri, self);
+        let mut pairing = Pairing::new(uri, self)?;
         let m = pairing.init_pairing().await?;
         Ok((pairing, m))
     }

@@ -45,9 +45,9 @@ pub struct Pairing {
 }
 
 impl Pairing {
-    pub fn new(uri: &str, connection: Connection) -> Self {
-        let params = UriParameters::from(uri.to_string());
-        Self {
+    pub fn new(uri: &str, connection: Connection) -> crate::Result<Self> {
+        let params = UriParameters::try_from(uri.to_string())?;
+        Ok(Self {
             // Generate a fresh private key for the pairing
             private_key: random_bytes32(),
             params,
@@ -55,7 +55,7 @@ impl Pairing {
             proposal_request: None,
             authenticate_request: None,
             approve_done: false,
-        }
+        })
     }
 
     /// Initialise the pairing process
