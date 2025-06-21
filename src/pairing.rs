@@ -34,7 +34,7 @@ pub enum Topic {
     Derived,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Pairing {
     private_key: [u8; 32],
     params: UriParameters,

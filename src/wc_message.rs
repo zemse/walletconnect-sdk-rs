@@ -12,7 +12,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct WcMessage {
     pub data: WcData,
     pub id: Id,
@@ -90,7 +90,7 @@ impl FromStr for WcMethod {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WcData {
     SessionPing,
     SessionPropose(SessionProposeParams),

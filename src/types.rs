@@ -275,7 +275,7 @@ impl EncryptedMessage {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SessionProposeParams {
     #[serde(rename = "requiredNamespaces")]
     pub required_namespaces: HashMap<String, Namespace>,
@@ -289,14 +289,14 @@ pub struct SessionProposeParams {
     pub expiry_timestamp: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SessionProposeResponse {
     pub relay: Relay,
     #[serde(rename = "responderPublicKey")]
     pub responder_public_key: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Namespace {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub accounts: Option<Vec<String>>,
@@ -305,12 +305,12 @@ pub struct Namespace {
     pub methods: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Relay {
     pub protocol: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SessionAuthenticateParams {
     #[serde(rename = "authPayload")]
     pub auth_payload: AuthPayload,
@@ -319,7 +319,7 @@ pub struct SessionAuthenticateParams {
     pub expiry_timestamp: u64,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct AuthPayload {
     #[serde(rename = "type")]
     pub payload_type: String,
@@ -333,14 +333,14 @@ pub struct AuthPayload {
     pub resources: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Participant {
     #[serde(rename = "publicKey")]
     pub public_key: String,
     pub metadata: Metadata,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Metadata {
     pub name: String,
     pub description: String,
@@ -348,13 +348,13 @@ pub struct Metadata {
     pub icons: Vec<String>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SessionAuthenticateResponse {
     pub cacaos: Vec<Cacao>,
     pub responder: Participant,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SessionSettleParams {
     pub controller: Participant,
     pub expiry: u64,
@@ -364,12 +364,12 @@ pub struct SessionSettleParams {
     pub session_properties: Option<SessionSettleProperties>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SessionSettleProperties {
     pub capabilities: String,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct SessionRequestParams {
     #[serde(rename = "sessionId")]
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -381,7 +381,7 @@ pub struct SessionRequestParams {
     pub chain_id: String,
 }
 
-#[derive(Clone, Debug, Serialize)]
+#[derive(Clone, Debug, Serialize, PartialEq)]
 pub struct SessionRequestObject {
     pub method: SessionRequestMethod,
     pub params: SessionRequestData,

@@ -20,7 +20,7 @@ use crate::types::{
 };
 use crate::wc_message::WcMessage;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Connection {
     rpc: String,
     id: usize,

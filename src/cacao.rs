@@ -15,7 +15,7 @@ use crate::types::AuthPayload;
 use crate::utils::str_timestamp;
 
 // https://specs.walletconnect.com/2.0/specs/clients/core/identity/identity-keys#cacao-format
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Cacao {
     #[serde(rename = "h")]
     pub header: CacaoHeader,
@@ -96,13 +96,13 @@ impl Cacao {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct CacaoHeader {
     #[serde(rename = "t")]
     pub header_type: String, // "caip122"
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct CacaoPayload {
     pub domain: String,
     #[serde(rename = "aud")]
@@ -121,7 +121,7 @@ pub struct CacaoPayload {
     pub iss: DID,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct CacaoSignature {
     #[serde(rename = "t")]
     pub signature_type: String, // "eip191"
@@ -142,7 +142,7 @@ impl CacaoPayload {
 
         let mut message = format!(
             "{} wants you to sign in with your {} account:\n{}\n\n",
-            self.domain, chain_name, self.iss.account_address
+            self.domain, chain_name, self.iss.account_address,
         );
 
         if let Some(statement) = &self.statement {
@@ -186,7 +186,7 @@ impl CacaoPayload {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DID {
     pub chain_id: String,
     pub account_address: Address,
