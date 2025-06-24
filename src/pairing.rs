@@ -137,20 +137,20 @@ impl Pairing {
         &mut self,
         account_address: Address,
     ) -> Result<Vec<WcMessage>> {
-        let response = self.get_proposal()?.create_success_response(
-            SessionProposeResponse {
+        let response = self.get_proposal()?.create_response(
+            WcData::SessionProposeResponse(SessionProposeResponse {
                 relay: Relay {
                     protocol: "irn".to_string(),
                 },
                 responder_public_key: self.public_key(),
-            },
+            }),
         );
 
         self.send_message(
             Topic::Initial,
-            &response,
+            &response.into_raw()?,
             Some(0),
-            IrnTag::SessionAuthenticateApproveResponse,
+            IrnTag::SessionProposeApproveResponse,
             3600,
         )
         .await?;
@@ -244,18 +244,19 @@ impl Pairing {
 
         cacao.verify()?;
 
-        let message = self
-            .authenticate_request
-            .as_ref()
-            .unwrap()
-            .create_success_response(SessionAuthenticateResponse {
-                cacaos: vec![cacao],
-                responder: self.participant(),
-            });
+        let message =
+            self.authenticate_request.as_ref().unwrap().create_response(
+                WcData::SessionAuthenticateResponse(
+                    SessionAuthenticateResponse {
+                        cacaos: vec![cacao],
+                        responder: self.participant(),
+                    },
+                ),
+            );
 
         self.send_message(
             Topic::Derived,
-            &message,
+            &message.into_raw()?,
             Some(1),
             IrnTag::SessionAuthenticateApproveResponse,
             3600,

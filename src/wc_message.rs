@@ -6,7 +6,7 @@ use serde_json::Value;
 use crate::{
     message::Message,
     types::{
-        Id, SessionAuthenticateParams, SessionAuthenticateResponse,
+        Id, IrnTag, SessionAuthenticateParams, SessionAuthenticateResponse,
         SessionProposeParams, SessionProposeResponse, SessionRequestParams,
         SessionSettleParams,
     },
@@ -28,7 +28,7 @@ impl WcMessage {
             jsonrpc: "2.0".to_string(),
             method: self.data.method().map(|m| m.to_string()),
             params: self.data.params()?,
-            result: None,
+            result: self.data.result()?,
             id: self.id.clone(),
         })
     }
@@ -41,16 +41,49 @@ impl WcMessage {
         self.data.params()
     }
 
-    pub fn create_success_response<R>(
-        &self,
-        result_data: R,
-    ) -> Message<String, R> {
-        Message {
-            jsonrpc: "2.0".to_string(),
-            method: None,
-            params: None,
-            result: Some(result_data),
+    pub fn create_response(&self, response_data: WcData) -> WcMessage {
+        WcMessage {
+            data: response_data,
             id: self.id.clone(),
+        }
+    }
+
+    pub fn irn_tag(&self) -> IrnTag {
+        match &self.data {
+            WcData::SessionPing => IrnTag::SessionPing,
+            WcData::SessionPropose(_) => IrnTag::SessionPropose,
+            WcData::SessionAuthenticate(_) => IrnTag::SessionAuthenticate,
+            WcData::SessionSettle(_) => IrnTag::SessionSettle,
+            WcData::SessionRequest(_) => IrnTag::SessionRequest,
+            WcData::SessionDelete(_) => IrnTag::SessionDelete,
+
+            WcData::SessionPingResponseSuccess => IrnTag::SessionPingResponse,
+            WcData::SessionProposeResponse(_) => {
+                IrnTag::SessionProposeApproveResponse
+            }
+            WcData::SessionAuthenticateResponse(_) => {
+                IrnTag::SessionAuthenticateApproveResponse
+            }
+            WcData::SessionSettleResult(_) => IrnTag::SessionSettleResponse,
+            WcData::UnknownResult(_) => IrnTag::UnsupportedMethod,
+        }
+    }
+
+    // https://specs.walletconnect.com/2.0/specs/clients/sign/rpc-methods#methods
+    pub fn ttl(&self) -> u64 {
+        match &self.data {
+            WcData::SessionPing => 30,
+            WcData::SessionPropose(_) => 300,
+            WcData::SessionAuthenticate(_) => 3600,
+            WcData::SessionSettle(_) => 300,
+            WcData::SessionRequest(_) => 300,
+            WcData::SessionDelete(_) => 86400,
+
+            WcData::SessionPingResponseSuccess => 30,
+            WcData::SessionProposeResponse(_) => 300,
+            WcData::SessionAuthenticateResponse(_) => 3600,
+            WcData::SessionSettleResult(_) => 300,
+            WcData::UnknownResult(_) => 300,
         }
     }
 }
