@@ -6,6 +6,7 @@
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 
+use alloy::primitives::Address;
 use alloy::rpc::types::TransactionRequest;
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeSeq;
@@ -399,8 +400,8 @@ pub enum SessionRequestMethod {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SessionRequestData {
-    EthSendTransaction([Box<TransactionRequest>; 1]),
-    PersonalSign([String; 2]),
+    EthSendTransaction(Box<TransactionRequest>),
+    PersonalSign { message: String, account: Address },
 }
 
 impl Serialize for SessionRequestData {
@@ -409,15 +410,15 @@ impl Serialize for SessionRequestData {
         S: serde::Serializer,
     {
         match self {
-            SessionRequestData::EthSendTransaction([tx]) => {
+            SessionRequestData::EthSendTransaction(tx) => {
                 let mut seq = serializer.serialize_seq(Some(1))?;
                 seq.serialize_element(tx)?;
                 seq.end()
             }
-            SessionRequestData::PersonalSign(arr) => {
+            SessionRequestData::PersonalSign { message, account } => {
                 let mut seq = serializer.serialize_seq(Some(2))?;
-                seq.serialize_element(&arr[0])?;
-                seq.serialize_element(&arr[1])?;
+                seq.serialize_element(&message)?;
+                seq.serialize_element(&account)?;
                 seq.end()
             }
         }
@@ -480,16 +481,16 @@ impl<'de> Deserialize<'de> for SessionRequestObject {
                 // Deserialize the params based on the method
                 let params = match method {
                     SessionRequestMethod::EthSendTransaction => {
-                        let arr: [Box<TransactionRequest>; 1] =
+                        let tx: [Box<TransactionRequest>; 1] =
                             serde_json::from_value(raw_params)
                                 .map_err(serde::de::Error::custom)?;
-                        SessionRequestData::EthSendTransaction(arr)
+                        SessionRequestData::EthSendTransaction(tx[0].clone())
                     }
                     SessionRequestMethod::PersonalSign => {
-                        let arr: [String; 2] =
+                        let (message, account) =
                             serde_json::from_value(raw_params)
                                 .map_err(serde::de::Error::custom)?;
-                        SessionRequestData::PersonalSign(arr)
+                        SessionRequestData::PersonalSign { message, account }
                     }
                 };
 
