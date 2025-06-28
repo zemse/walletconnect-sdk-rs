@@ -65,6 +65,7 @@ impl WcMessage {
                 IrnTag::SessionAuthenticateApproveResponse
             }
             WcData::SessionSettleResult(_) => IrnTag::SessionSettleResponse,
+            WcData::SessionRequestResponse(_) => IrnTag::SessionRequestResponse,
             WcData::UnknownResult(_) => IrnTag::UnsupportedMethod,
         }
     }
@@ -83,6 +84,7 @@ impl WcMessage {
             WcData::SessionProposeResponse(_) => 300,
             WcData::SessionAuthenticateResponse(_) => 3600,
             WcData::SessionSettleResult(_) => 300,
+            WcData::SessionRequestResponse(_) => 300,
             WcData::UnknownResult(_) => 300,
         }
     }
@@ -136,6 +138,7 @@ pub enum WcData {
     SessionProposeResponse(SessionProposeResponse),
     SessionAuthenticateResponse(SessionAuthenticateResponse),
     SessionSettleResult(bool),
+    SessionRequestResponse(Value),
     UnknownResult(Value),
 }
 
@@ -158,6 +161,7 @@ impl Serialize for WcData {
             Self::SessionProposeResponse(p) => p.serialize(serializer),
             Self::SessionAuthenticateResponse(p) => p.serialize(serializer),
             Self::SessionSettleResult(p) => p.serialize(serializer),
+            Self::SessionRequestResponse(p) => p.serialize(serializer),
             Self::UnknownResult(v) => v.serialize(serializer),
         }
     }
@@ -177,6 +181,7 @@ impl WcData {
             Self::SessionProposeResponse(_) => None,
             Self::SessionAuthenticateResponse(_) => None,
             Self::SessionSettleResult(_) => None,
+            Self::SessionRequestResponse(_) => None,
             Self::UnknownResult(_) => None,
         }
     }
@@ -194,6 +199,7 @@ impl WcData {
             Self::SessionProposeResponse(_) => None,
             Self::SessionAuthenticateResponse(_) => None,
             Self::SessionSettleResult(_) => None,
+            Self::SessionRequestResponse(_) => None,
             Self::UnknownResult(_) => None,
         })
     }
@@ -215,13 +221,10 @@ impl WcData {
                 Ok(Some(serde_json::to_value(v)?))
             }
             Self::SessionSettleResult(v) => Ok(Some(serde_json::to_value(v)?)),
+            Self::SessionRequestResponse(v) => Ok(Some(v.clone())),
             Self::UnknownResult(v) => Ok(Some(v.clone())),
         }
     }
-
-    // pub fn into_value(self) -> crate::Result<Value> {
-    //     Ok(serde_json::to_value(self)?)
-    // }
 
     pub fn as_session_propose(&self) -> Option<&SessionProposeParams> {
         match self {
