@@ -15,10 +15,14 @@ checkout [examples](./examples) to see how it works.
 
 - [x] wc_sessionPropose
 - [x] wc_sessionSettle
-- [x] wc_sessionAuthenticate
+- [ ] wc_sessionAuthenticate
 - [x] wc_sessionRequest
 - [ ] wc_sessionUpdate
 - [ ] wc_sessionExtend
-- [ ] wc_sessionPing
+- [x] wc_sessionPing
 - [ ] wc_sessionDelete
 - [ ] wc_sessionEvent
+
+## used by 
+
+- [gm](https://github.com/zemse/gm)
