@@ -137,7 +137,8 @@ impl Pairing {
         &mut self,
         account_address: Address,
     ) -> Result<Vec<WcMessage>> {
-        let response = self.get_proposal()?.create_response(
+        let proposal = self.get_proposal()?;
+        let response = proposal.create_response(
             WcData::SessionProposeResponse(SessionProposeResponse {
                 relay: Relay {
                     protocol: "irn".to_string(),
@@ -158,32 +159,35 @@ impl Pairing {
 
         self.subscribe(Topic::Derived).await?;
 
+        let proposal =
+            proposal.data.as_session_propose().ok_or("not proposal")?;
+
         let session_settle =
             self.new_message(WcData::SessionSettle(SessionSettleParams {
                 controller: self.participant(),
                 expiry: unix_timestamp()? + 10 * DAYS,
-                namespaces: [(
-                    "eip155".to_string(),
-                    Namespace {
-                        accounts: Some(vec![
-                            format!("eip155:1:{account_address}"),
-                            format!("eip155:137:{account_address}"),
-                        ]),
-                        chains: vec![
-                            "eip155:1".to_string(),
-                            "eip155:137".to_string(),
-                        ],
-                        events: vec![
-                            "accountsChanged".to_string(),
-                            "chainChanged".to_string(),
-                        ],
-                        methods: vec![
-                            "personal_sign".to_string(),
-                            "eth_sendTransaction".to_string(),
-                        ],
-                    },
-                )]
-                .into(),
+                namespaces: proposal
+                    .required_namespaces
+                    .clone()
+                    .into_iter()
+                    .chain(proposal.optional_namespaces.clone())
+                    .map(|(name, n)| {
+                        (
+                            name,
+                            Namespace {
+                                accounts: Some(
+                                    n.chains
+                                        .iter()
+                                        .map(|c| {
+                                            format!("{c}:{account_address}")
+                                        })
+                                        .collect(),
+                                ),
+                                ..n
+                            },
+                        )
+                    })
+                    .collect(),
                 relay: Relay {
                     protocol: "irn".to_string(),
                 },
