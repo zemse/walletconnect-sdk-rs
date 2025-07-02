@@ -144,6 +144,7 @@ impl Pairing {
                 },
                 responder_public_key: self.public_key(),
             }),
+            None,
         );
 
         self.send_message(
@@ -252,6 +253,7 @@ impl Pairing {
                         responder: self.participant(),
                     },
                 ),
+                None,
             );
 
         self.send_message(
@@ -289,6 +291,7 @@ impl Pairing {
             method: data.method().map(|s| s.to_string()),
             params: data.params()?,
             result: None,
+            error: None,
             id: self.connection.get_id(),
         })
     }

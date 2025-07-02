@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize, Serializer, de::DeserializeOwned};
 use serde_json::Value;
 
 use crate::{
-    message::Message,
+    message::{Message, MessageError},
     types::{
         Id, IrnTag, SessionAuthenticateParams, SessionAuthenticateResponse,
         SessionProposeParams, SessionProposeResponse, SessionRequestParams,
@@ -16,6 +16,7 @@ use crate::{
 pub struct WcMessage {
     pub data: WcData,
     pub id: Id,
+    pub irn_tag_override: Option<IrnTag>,
 }
 
 impl WcMessage {
@@ -29,6 +30,7 @@ impl WcMessage {
             method: self.data.method().map(|m| m.to_string()),
             params: self.data.params()?,
             result: self.data.result()?,
+            error: self.data.error(),
             id: self.id.clone(),
         })
     }
@@ -41,10 +43,15 @@ impl WcMessage {
         self.data.params()
     }
 
-    pub fn create_response(&self, response_data: WcData) -> WcMessage {
+    pub fn create_response(
+        &self,
+        response_data: WcData,
+        irn_tag_override: Option<IrnTag>,
+    ) -> WcMessage {
         WcMessage {
             data: response_data,
             id: self.id.clone(),
+            irn_tag_override,
         }
     }
 
@@ -67,6 +74,7 @@ impl WcMessage {
             WcData::SessionSettleResult(_) => IrnTag::SessionSettleResponse,
             WcData::SessionRequestResponse(_) => IrnTag::SessionRequestResponse,
             WcData::UnknownResult(_) => IrnTag::UnsupportedMethod,
+            WcData::Error { .. } => IrnTag::UnsupportedMethod, // TODO it should use request IRN
         }
     }
 
@@ -86,6 +94,8 @@ impl WcMessage {
             WcData::SessionSettleResult(_) => 300,
             WcData::SessionRequestResponse(_) => 300,
             WcData::UnknownResult(_) => 300,
+
+            WcData::Error { .. } => 300,
         }
     }
 }
@@ -140,6 +150,8 @@ pub enum WcData {
     SessionSettleResult(bool),
     SessionRequestResponse(Value),
     UnknownResult(Value),
+
+    Error { message: String, code: usize },
 }
 
 impl Serialize for WcData {
@@ -163,6 +175,16 @@ impl Serialize for WcData {
             Self::SessionSettleResult(p) => p.serialize(serializer),
             Self::SessionRequestResponse(p) => p.serialize(serializer),
             Self::UnknownResult(v) => v.serialize(serializer),
+
+            Self::Error { message, code } => {
+                let mut map = serde_json::Map::new();
+                map.insert(
+                    "message".to_string(),
+                    Value::String(message.clone()),
+                );
+                map.insert("code".to_string(), Value::Number((*code).into()));
+                Value::Object(map).serialize(serializer)
+            }
         }
     }
 }
@@ -183,6 +205,8 @@ impl WcData {
             Self::SessionSettleResult(_) => None,
             Self::SessionRequestResponse(_) => None,
             Self::UnknownResult(_) => None,
+
+            Self::Error { .. } => None,
         }
     }
 
@@ -201,6 +225,8 @@ impl WcData {
             Self::SessionSettleResult(_) => None,
             Self::SessionRequestResponse(_) => None,
             Self::UnknownResult(_) => None,
+
+            Self::Error { .. } => None,
         })
     }
 
@@ -223,6 +249,18 @@ impl WcData {
             Self::SessionSettleResult(v) => Ok(Some(serde_json::to_value(v)?)),
             Self::SessionRequestResponse(v) => Ok(Some(v.clone())),
             Self::UnknownResult(v) => Ok(Some(v.clone())),
+
+            Self::Error { .. } => Ok(None),
+        }
+    }
+
+    pub fn error(&self) -> Option<MessageError> {
+        match self {
+            Self::Error { message, code } => Some(MessageError {
+                message: message.clone(),
+                code: *code,
+            }),
+            _ => None,
         }
     }
 
@@ -346,6 +384,7 @@ impl TryFrom<Message> for WcMessage {
         Ok(WcMessage {
             data: wc_params,
             id: msg.id.clone(),
+            irn_tag_override: None,
         })
     }
 }
@@ -475,6 +514,7 @@ mod tests {
                     "requiredNamespaces": {}
                 })),
                 result: None,
+                error: None,
                 id: Id::U128(1743767878967710),
             }
         );
@@ -524,6 +564,7 @@ mod tests {
                     }
                 })),
                 result: None,
+                error: None,
                 id: Id::U128(1743767878967691),
             }
         );
@@ -588,6 +629,7 @@ mod tests {
                     "publicKey": "b888ea88e58ad03b935da236b662c037f3b391210ef4aabaf83025f046797645"
                   }
                 })),
+                error: None,
                 id: Id::U128(1743767878967691)
             }
         );
@@ -656,6 +698,7 @@ mod tests {
                 }
                 )),
                 result: None,
+                error: None,
                 id: Id::U128(1744290564004257),
             }
         );
@@ -733,6 +776,7 @@ mod tests {
                   }
                 })),
                 result: None,
+                error: None,
                 id: Id::U128(1744290616431615),
             }
         );
@@ -757,6 +801,7 @@ mod tests {
                     },
                     "responderPublicKey": "886cea3da4d8ffa0ea6a10350ae9c2c882c52da1f00666adbb94af802e7d2414",
                 })),
+                error: None,
                 id: Id::U128(1744290564004257),
             }
         );

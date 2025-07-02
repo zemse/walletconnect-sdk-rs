@@ -17,6 +17,12 @@ use crate::error::Result;
 use crate::types::Id;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub struct MessageError {
+    pub message: String,
+    pub code: usize,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Message<M = String, T = Value> {
     pub jsonrpc: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -25,6 +31,8 @@ pub struct Message<M = String, T = Value> {
     pub params: Option<T>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub result: Option<T>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<MessageError>,
     pub id: Id,
 }
 
@@ -42,6 +50,7 @@ impl<T: Serialize + DeserializeOwned> Message<String, T> {
             method: None,
             params: None,
             result: Some(result),
+            error: None,
             id,
         }
     }
@@ -107,17 +116,27 @@ where
             method: None,
             params: None,
             result: Some(result_data),
+            error: None,
             id: self.id.clone(),
         }
     }
 
     pub fn create_error_response(
         &self,
-        _code: i64,
-        _message: String,
-        _data: Option<Value>,
-    ) -> Message<M, P> {
-        todo!()
+        message: String,
+        code: i64,
+    ) -> Message<M, Value> {
+        Message {
+            jsonrpc: self.jsonrpc.clone(),
+            method: None,
+            params: None,
+            result: None,
+            error: Some(MessageError {
+                message,
+                code: code as usize,
+            }),
+            id: self.id.clone(),
+        }
     }
 }
 
@@ -166,11 +185,13 @@ impl Message<String, Value> {
             .as_ref()
             .map(|r| serde_json::from_value::<P>(r.clone()))
             .transpose()?;
+
         Ok(Message {
             jsonrpc: self.jsonrpc.clone(),
             method,
             params,
             result,
+            error: self.error.clone(),
             id: self.id.clone(),
         })
     }
@@ -189,6 +210,7 @@ impl Message<String, Value> {
             method: None,
             params: None,
             result,
+            error: None,
             id: self.id.clone(),
         })
     }
