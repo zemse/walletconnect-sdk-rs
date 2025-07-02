@@ -257,8 +257,8 @@ impl WcData {
     pub fn error(&self) -> Option<MessageError> {
         match self {
             Self::Error { message, code } => Some(MessageError {
-                message: message.clone(),
-                code: *code,
+                message: Some(message.clone()),
+                code: Some(*code),
             }),
             _ => None,
         }
@@ -377,8 +377,18 @@ impl TryFrom<Message> for WcMessage {
             Some(WcMethod::SessionDelete) => {
                 WcData::SessionDelete(msg.params.unwrap().clone())
             }
+
             // TODO implement typeful decoding or results here
-            None => WcData::UnknownResult(msg.result.unwrap_or_default()),
+            None => {
+                if let Some(error) = &msg.error {
+                    WcData::Error {
+                        message: error.message.clone().unwrap_or_default(),
+                        code: error.code.unwrap_or(0),
+                    }
+                } else {
+                    WcData::UnknownResult(msg.result.unwrap_or_default())
+                }
+            }
         };
 
         Ok(WcMessage {

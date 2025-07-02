@@ -18,8 +18,8 @@ use crate::types::Id;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct MessageError {
-    pub message: String,
-    pub code: usize,
+    pub message: Option<String>,
+    pub code: Option<usize>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -132,8 +132,8 @@ where
             params: None,
             result: None,
             error: Some(MessageError {
-                message,
-                code: code as usize,
+                message: Some(message),
+                code: Some(code as usize),
             }),
             id: self.id.clone(),
         }
