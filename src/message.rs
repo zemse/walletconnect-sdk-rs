@@ -160,8 +160,8 @@ impl Message<String, Value> {
             cipher.decrypt(nonce, encoding_params.sealed.as_ref())?;
         let str = String::from_utf8(decrypted)?;
         debug!("decrypted message -> {str}");
-        Ok(serde_json::from_str::<Self>(&str).inspect_err(|e| {
-            println!("Failed to deserialize JSON-RPC request: {e}\n{str}");
+        Ok(serde_json::from_str::<Self>(&str).map_err(|e| {
+            format!("Failed to deserialize JSON-RPC request: {e}\n{str}")
         })?)
     }
 

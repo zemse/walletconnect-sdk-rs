@@ -144,9 +144,9 @@ impl Connection {
             serde_json::from_str::<JsonRpcResponse>(response.as_str())?;
 
         if let Some(result) = response.result {
-            Ok(serde_json::from_value::<ResultType>(result).inspect_err(
-                |e| println!("Failed to decode JSON RPC Response Error: {e}"),
-            )?)
+            Ok(serde_json::from_value::<ResultType>(result).map_err(|e| {
+                format!("Failed to decode JSON RPC Response Error: {e}")
+            })?)
         } else if let Some(error) = response.error {
             Err(error.into())
         } else {
