@@ -5,6 +5,7 @@
 use aes_gcm::aead::{Aead, KeyInit, OsRng};
 use aes_gcm::{Key, Nonce};
 use alloy::hex;
+use alloy::primitives::Bytes;
 use base64ct::{Base64, Base64UrlUnpadded, Encoding};
 use chacha20poly1305::ChaCha20Poly1305;
 use log::debug;
@@ -19,7 +20,8 @@ use crate::types::Id;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct MessageError {
     pub message: Option<String>,
-    pub code: Option<usize>,
+    pub code: Option<i64>,
+    pub data: Option<Bytes>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -125,6 +127,7 @@ where
         &self,
         message: String,
         code: i64,
+        data: Option<Bytes>,
     ) -> Message<M, Value> {
         Message {
             jsonrpc: self.jsonrpc.clone(),
@@ -133,7 +136,8 @@ where
             result: None,
             error: Some(MessageError {
                 message: Some(message),
-                code: Some(code as usize),
+                code: Some(code),
+                data,
             }),
             id: self.id.clone(),
         }
