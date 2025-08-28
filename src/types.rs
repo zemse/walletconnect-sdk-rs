@@ -396,12 +396,15 @@ pub enum SessionRequestMethod {
     PersonalSign,
     #[serde(rename = "eth_sendTransaction")]
     EthSendTransaction,
+    #[serde(rename = "eth_signTypedData_v4")]
+    EthSignTypedDataV4,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SessionRequestData {
     EthSendTransaction(Box<TransactionRequest>),
     PersonalSign { message: String, account: Address },
+    EthSignTypedDataV4 { account: Address, typed_data: Value },
 }
 
 impl Serialize for SessionRequestData {
@@ -419,6 +422,15 @@ impl Serialize for SessionRequestData {
                 let mut seq = serializer.serialize_seq(Some(2))?;
                 seq.serialize_element(&message)?;
                 seq.serialize_element(&account)?;
+                seq.end()
+            }
+            SessionRequestData::EthSignTypedDataV4 {
+                account,
+                typed_data,
+            } => {
+                let mut seq = serializer.serialize_seq(Some(2))?;
+                seq.serialize_element(account)?;
+                seq.serialize_element(typed_data)?;
                 seq.end()
             }
         }
@@ -491,6 +503,28 @@ impl<'de> Deserialize<'de> for SessionRequestObject {
                             serde_json::from_value(raw_params)
                                 .map_err(serde::de::Error::custom)?;
                         SessionRequestData::PersonalSign { message, account }
+                    }
+                    SessionRequestMethod::EthSignTypedDataV4 => {
+                        if let Ok((account, typed_data)) =
+                            serde_json::from_value(raw_params.clone())
+                        {
+                            SessionRequestData::EthSignTypedDataV4 {
+                                account,
+                                typed_data,
+                            }
+                        } else {
+                            // Fallback: second item is a string that itself is JSON
+                            let (account, typed_data_str): (Address, String) =
+                                serde_json::from_value(raw_params)
+                                    .map_err(serde::de::Error::custom)?;
+                            let typed_data: Value =
+                                serde_json::from_str(&typed_data_str)
+                                    .map_err(serde::de::Error::custom)?;
+                            SessionRequestData::EthSignTypedDataV4 {
+                                account,
+                                typed_data,
+                            }
+                        }
                     }
                 };
 

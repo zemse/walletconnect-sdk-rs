@@ -183,7 +183,13 @@ impl Pairing {
                                         })
                                         .collect(),
                                 ),
-                                ..n
+                                chains: n.chains,
+                                events: n.events,
+                                methods: vec![
+                                    "personal_sign".to_string(),
+                                    "eth_sendTransaction".to_string(),
+                                    "eth_signTypedData_v4".to_string(),
+                                ],
                             },
                         )
                     })
