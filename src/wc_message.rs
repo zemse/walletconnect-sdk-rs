@@ -20,6 +20,12 @@ pub struct WcMessage {
     pub irn_tag_override: Option<IrnTag>,
 }
 
+impl Display for WcMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
+    }
+}
+
 impl WcMessage {
     pub fn from_value(value: Value) -> crate::Result<WcMessage> {
         serde_json::from_value::<Message>(value)?.decode()
